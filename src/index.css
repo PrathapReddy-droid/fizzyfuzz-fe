@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default Theme */
+:root {
+  --color-primary: 139 92 246;   /* purple-500 */
+  --color-secondary: 236 72 153; /* pink-500 */
+  --color-bg: 255 255 255;
+  --color-text: 31 41 55;
+  --color-card: 255 255 255;
+}
+
+/* Dark Theme */
+.dark {
+  --color-primary: 168 85 247;
+  --color-secondary: 244 114 182;
+  --color-bg: 17 24 39;
+  --color-text: 229 231 235;
+  --color-card: 31 41 55;
+}
+
+/* Fizzy Fuzz Alternate Theme (example) */
+.fizzy-theme {
+  --color-primary: 236 72 153;
+  --color-secondary: 249 115 22;
+}
