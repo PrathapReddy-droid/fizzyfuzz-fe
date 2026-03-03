@@ -303,11 +303,11 @@ export const Products = () => {
   const hasPanOrAadhaar =
     Boolean(user.pan_number?.trim()) || Boolean(user.aadhaar_number?.trim());
 
-  if (!hasPanOrAadhaar) missing.push("PAN or Aadhaar");
+  if (!hasPanOrAadhaar) missing.push("KYC Details");
   if (!user.gst?.trim()) missing.push("GST");
   if (!user.bank_account?.trim()) missing.push("Bank Account Number");
   if (!user.ifsc?.trim()) missing.push("IFSC Code");
-  if (!user.pin_number?.toString().trim()) missing.push("Pincode");
+  if(!user.city||!user.email||!user.mobile||!user.name||!user.state||!user.address||!user.pin_number||!user.pickup_location) missing.push("delivery information");
 
   return missing;
 };

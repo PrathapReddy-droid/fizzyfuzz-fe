@@ -29,13 +29,17 @@ const Profile = () => {
         mobile: '',
         gst: '',        // string or null
         business: '',   // string or null
-        address: '',     // string or null
         ifsc: '',
         bankAccount: '',
         upi: '',
         aadhaarNumber: "",
         panNumber: "",
         kycDocument: '',
+        address: '',
+        city: '',
+        state: '',
+        country: 'INDIA',
+        pickup_location: '',
         pinCode : ""
     });
 
@@ -78,6 +82,10 @@ const Profile = () => {
                 kycNumber : context?.userData?.kyc_number ,
                 aadhaarNumber : context?.userData?.aadhaar_number ,
                 panNumber : context?.userData?.pan_number ,
+                city: context?.userData?.city,
+                state: context?.userData?.state,
+                country: context?.userData?.country||'INDIA',
+                pickup_location: context?.userData?.pickup_location,
                 pinCode : context?.userData?.pin_number ,
             })
 
@@ -124,6 +132,16 @@ const Profile = () => {
 
         setIsLoading(true);
 
+        if (!formFields.ifsc) {
+            context.alertBox("error", "IFSC is required");
+            setIsLoading(false);
+            return;
+        }
+        if (!formFields.ifsc) {
+            context.alertBox("error", "Bank Account is required");
+            setIsLoading(false);
+            return;
+        }
         if (formFields.name === "") {
             context.alertBox("error", "Please enter full name");
             setIsLoading(false);
@@ -135,6 +153,49 @@ const Profile = () => {
             context.alertBox("error", "Please enter email id");
             setIsLoading(false);
             return false
+        }
+        const addressRegex = /\d+/; // checks if any number exists
+
+        if (!formFields.address || !addressRegex.test(formFields.address)) {
+            context.alertBox("error", "Address must include house, flat, or road number");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.city) {
+            context.alertBox("error", "City is required");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.state) {
+            context.alertBox("error", "State is required");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.country) {
+            context.alertBox("error", "Country is required");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.pickup_location) {
+            context.alertBox("error", "Pickup location is required");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.pinCode || formFields.pinCode.length !== 6) {
+            context.alertBox("error", "Valid PIN Code is required");
+            setIsLoading(false);
+            return;
+        }
+
+        if (!formFields.kycDocument) {
+            context.alertBox("error", "KYC document is required");
+            setIsLoading(false);
+            return;
         }
 
 
@@ -448,26 +509,7 @@ const onChangeKyc = async (e) => {
                             </div>
                             <div className="col">
                                 
-                                <label className="block text-xs font-medium text-gray-200 mb-1">
-                                    PIN Code
-                                </label>
-                                <input
-                                    type="text"
-                                    name="pinCode"
-                                    value={formFields.pinCode || ''}
-                                    disabled={isLoading}
-                                    placeholder="PIN Code Number"
-                                    className="w-full h-[50px] border-2 text-black border-[rgba(0,0,0,0.1)] rounded-md px-3 focus:outline-none focus:border-[rgba(0,0,0,0.7)]"
-                                    onChange={(e) =>
-                                        setFormsFields(state =>{ 
-                                            if(e.target.value.replace(/\D/g, '')?.length<7){
-                                                return { ...state,  pinCode : e.target.value.replace(/\D/g, '')}
-                                            }else{
-                                                return {...state}
-                                            }
-                                         })
-                                    }
-                                />
+                                
                             </div>
                             {/* KYC TYPE SELECT */}
                             {/* KYC TYPE */}
@@ -597,20 +639,90 @@ const onChangeKyc = async (e) => {
                             </div>
 
                             <div className="col">
-                                <label className="block text-xs font-medium text-gray-200 mb-1">
-                                    Address
-                                </label>
-                                <textarea
-                                    name="address"
-                                    rows={3}
-                                    value={formFields.address || ''}
-                                    disabled={isLoading || isAddressLocked}
-                                    placeholder="Enter your address"
-                                    onChange={onChangeInput}
-                                    className="w-full border-2 text-black border-[rgba(0,0,0,0.1)] rounded-md 
-               focus:border-[rgba(0,0,0,0.7)] focus:outline-none px-3 py-2 h-40 text-sm"
-                                />
-                            </div>
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    Address Line
+  </label>
+  <input
+    name="address"
+    value={formFields.address || ''}
+    onChange={onChangeInput}
+    className="w-full text-black border-2 border-gray-200 rounded-md px-3 py-2"
+  />
+  <p className="text-xs text-gray-400 mt-1">
+                                        Aadhaar must include house, flat or road number
+                                    </p>
+</div>
+
+<div className="col">
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    City
+  </label>
+  <input
+    type="text"
+    name="city"
+    value={formFields.city || ''}
+    onChange={onChangeInput}
+    className="w-full h-[50px] text-black border-2 border-gray-200 rounded-md px-3"
+  />
+</div>
+
+<div className="col">
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    State
+  </label>
+  <input
+    type="text"
+    name="state"
+    value={formFields.state || ''}
+    onChange={onChangeInput}
+    className="w-full h-[50px] text-black border-2 border-gray-200 rounded-md px-3"
+  />
+</div>
+
+<div className="col">
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    Country
+  </label>
+  <input
+    type="text"
+    name="country"
+    value="INDIA"
+    disabled
+    className="w-full h-[50px] text-black border-2 border-gray-200 rounded-md px-3 bg-gray-100 cursor-not-allowed"
+  />
+</div>
+
+<div className="col">
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    Pickup Location
+  </label>
+  <input
+    type="text"
+    name="pickup_location"
+    value={formFields.pickup_location || ''}
+    onChange={onChangeInput}
+    className="w-full h-[50px] text-black border-2 border-gray-200 rounded-md px-3"
+  />
+</div>
+
+<div className="col">
+  <label className="block text-xs font-medium text-gray-200 mb-1">
+    PIN Code
+  </label>
+  <input
+    type="text"
+    name="pinCode"
+    value={formFields.pinCode || ''}
+    maxLength={6}
+    onChange={(e) =>
+      setFormsFields(prev => ({
+        ...prev,
+        pinCode: e.target.value.replace(/\D/g, '')
+      }))
+    }
+    className="w-full h-[50px] text-black border-2 border-gray-200 rounded-md px-3"
+  />
+</div>
 
                             <div className="col">
                                 <label className="block text-xs font-medium text-gray-200 mb-1">
