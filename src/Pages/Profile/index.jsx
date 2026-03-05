@@ -181,7 +181,7 @@ const Profile = () => {
         }
 
         if (!formFields.pickup_location) {
-            context.alertBox("error", "Pickup location is required");
+            context.alertBox("error", "Warehouse name is required");
             setIsLoading(false);
             return;
         }
@@ -694,7 +694,7 @@ const onChangeKyc = async (e) => {
 
 <div className="col">
   <label className="block text-xs font-medium text-gray-200 mb-1">
-    Pickup Location
+    Warehouse Name
   </label>
   <input
     type="text"

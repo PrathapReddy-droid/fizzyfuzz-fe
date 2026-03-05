@@ -101,7 +101,7 @@ const Login = () => {
       context.alertBox("error", "Please enter password");
       return false
     }
-
+    formFields.role = import.meta.env.VITE_FRONTEND
 
 try {
       let res = await postData("/api/user/login", formFields)
