@@ -76,7 +76,7 @@ const Login = () => {
     if (!formFields.email)    { context.alertBox("error", "Please enter email");    setIsLoading(false); return; }
     if (!formFields.password) { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
 
-    const payload = { ...formFields, role: "SELLER" };
+    const payload = { ...formFields, role: import.meta.env.VITE_FRONTEND || "SELLER" };
 
     try {
       const res = await postData("/api/user/login", payload);

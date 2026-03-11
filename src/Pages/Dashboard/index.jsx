@@ -399,120 +399,489 @@ const Dashboard = () => {
 
 
 {context?.userData?.role === "ADMIN" && (
-  <div className="card my-6 rounded-xl bg-white shadow-lg border border-gray-100">
+  <>
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-    {/* Header */}
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between px-6 py-5 border-b bg-gray-50 rounded-t-xl">
-      <h2 className="text-[18px] font-semibold text-gray-800">
-        Users & Sales Analytics
-      </h2>
+      .ac-wrap {
+        font-family: 'Outfit', sans-serif;
+        --bg:           #12052e;
+        --surface:      #1a0a3d;
+        --surface-2:    #22104f;
+        --surface-3:    #2e1a63;
+        --line:         rgba(139, 92, 246, 0.18);
+        --accent:       #7c3aed;
+        --accent-2:     #9b59f5;
+        --accent-glow:  rgba(124, 58, 237, 0.35);
+        --accent-dim:   rgba(124, 58, 237, 0.15);
+        --blue:         #3b82f6;
+        --blue-dim:     rgba(59,130,246,0.15);
+        --orange:       #f59e0b;
+        --orange-dim:   rgba(245,158,11,0.15);
+        --green:        #22c55e;
+        --green-dim:    rgba(34,197,94,0.15);
+        --text:         #ede9fe;
+        --text-dim:     #a78bca;
+        --muted:        #6b4f8a;
+        background: var(--surface);
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        box-shadow: 0 8px 40px rgba(10, 2, 30, 0.6);
+        overflow: hidden;
+        margin: 24px 0;
+      }
 
-      {/* Toggle Buttons */}
-      <div className="flex gap-3 mt-3 lg:mt-0">
-        <button
-          onClick={()=>getTotalUsersByYear("User")}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-full border 
-                     hover:bg-blue-50 transition"
-        >
-          <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-          Total Users
-        </button>
+      /* ── HEADER ── */
+      .ac-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 24px 32px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(135deg, rgba(124,58,237,0.12) 0%, transparent 55%);
+      }
 
-        <button
-          onClick={()=>getTotalUsersByYear("Seller")}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-full border 
-                     hover:bg-blue-50 transition"
-        >
-          <span className="w-3 h-3 rounded-full bg-orange-600"></span>
-          Total Seller
-        </button>
-        <button
-          onClick={getTotalSalesByYear}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-full border 
-                     hover:bg-green-50 transition"
-        >
-          <span className="w-3 h-3 rounded-full bg-green-600"></span>
-          Total Sales
-        </button>
+      .ac-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .ac-header-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+        background: var(--accent-dim);
+        border: 1px solid rgba(124,58,237,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .ac-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+
+      .ac-subtitle {
+        font-size: 12px;
+        color: var(--text-dim);
+        font-weight: 300;
+        margin-top: 1px;
+      }
+
+      /* ── TOGGLE BUTTONS ── */
+      .ac-toggles {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .ac-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 14px;
+        font-family: 'Outfit', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        letter-spacing: 0.01em;
+      }
+
+      .ac-toggle:hover {
+        color: var(--text);
+        border-color: rgba(124,58,237,0.4);
+        background: var(--surface-3);
+      }
+
+      .ac-toggle.active-user {
+        background: var(--blue-dim);
+        border-color: rgba(59,130,246,0.4);
+        color: #93c5fd;
+        box-shadow: 0 0 10px rgba(59,130,246,0.2);
+      }
+
+      .ac-toggle.active-seller {
+        background: var(--orange-dim);
+        border-color: rgba(245,158,11,0.4);
+        color: #fcd34d;
+        box-shadow: 0 0 10px rgba(245,158,11,0.2);
+      }
+
+      .ac-toggle.active-sales {
+        background: var(--green-dim);
+        border-color: rgba(34,197,94,0.4);
+        color: #86efac;
+        box-shadow: 0 0 10px rgba(34,197,94,0.2);
+      }
+
+      .ac-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* ── SUMMARY CARDS ── */
+      .ac-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      @media (max-width: 640px) {
+        .ac-stats { grid-template-columns: 1fr; }
+        .ac-stat + .ac-stat { border-top: 1px solid var(--line); border-left: none !important; }
+      }
+
+      .ac-stat {
+        padding: 22px 28px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .ac-stat + .ac-stat {
+        border-left: 1px solid var(--line);
+      }
+
+      .ac-stat-glow {
+        position: absolute;
+        top: -20px;
+        right: -20px;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        opacity: 0.15;
+        filter: blur(24px);
+        pointer-events: none;
+      }
+
+      .ac-stat-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .ac-stat-label-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .ac-stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+
+      .ac-stat-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        font-weight: 300;
+      }
+
+      /* ── CHART AREA ── */
+      .ac-chart-wrap {
+        padding: 24px 28px 28px;
+      }
+
+      .ac-chart-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .ac-chart-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      .ac-chart-legend {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .ac-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      .ac-legend-swatch {
+        width: 24px;
+        height: 4px;
+        border-radius: 2px;
+      }
+
+      .ac-chart-scroll {
+        overflow-x: auto;
+      }
+
+      .ac-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        gap: 12px;
+      }
+
+      .ac-empty-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: var(--surface-2);
+        border: 1px solid rgba(124,58,237,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ac-empty-text {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-dim);
+      }
+
+      .ac-empty-sub {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 300;
+      }
+    `}</style>
+
+    <div className="ac-wrap">
+
+      {/* ── HEADER ── */}
+      <div className="ac-header">
+        <div className="ac-header-left">
+          <div className="ac-header-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9b59f5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6"  y1="20" x2="6"  y2="14" />
+            </svg>
+          </div>
+          <div>
+            <div className="ac-title">Users & Sales Analytics</div>
+            <div className="ac-subtitle">Year-over-year breakdown</div>
+          </div>
+        </div>
+
+        <div className="ac-toggles">
+          <button
+            onClick={() => getTotalUsersByYear("User")}
+            className={`ac-toggle ${type === "User" ? "active-user" : ""}`}
+          >
+            <span className="ac-dot" style={{ background: "#3b82f6" }} />
+            Total Users
+          </button>
+          <button
+            onClick={() => getTotalUsersByYear("Seller")}
+            className={`ac-toggle ${type === "Seller" ? "active-seller" : ""}`}
+          >
+            <span className="ac-dot" style={{ background: "#f59e0b" }} />
+            Total Sellers
+          </button>
+          <button
+            onClick={getTotalSalesByYear}
+            className={`ac-toggle ${type === "Sales" ? "active-sales" : ""}`}
+          >
+            <span className="ac-dot" style={{ background: "#22c55e" }} />
+            Total Sales
+          </button>
+        </div>
       </div>
+
+      {/* ── SUMMARY CARDS ── */}
+      <div className="ac-stats">
+        {/* Users */}
+        <div className="ac-stat">
+          <div className="ac-stat-glow" style={{ background: "#3b82f6" }} />
+          <div className="ac-stat-label">
+            <span className="ac-stat-label-dot" style={{ background: "#3b82f6" }} />
+            Total Users
+          </div>
+          <div className="ac-stat-value" style={{ color: "#93c5fd" }}>
+            {type === "User"
+              ? (chartData?.reduce((a, b) => a + (b.TotalUsers || 0), 0) ?? 0).toLocaleString()
+              : "—"}
+          </div>
+          <div className="ac-stat-sub">Registered accounts</div>
+        </div>
+
+        {/* Sellers */}
+        <div className="ac-stat">
+          <div className="ac-stat-glow" style={{ background: "#f59e0b" }} />
+          <div className="ac-stat-label">
+            <span className="ac-stat-label-dot" style={{ background: "#f59e0b" }} />
+            Total Sellers
+          </div>
+          <div className="ac-stat-value" style={{ color: "#fcd34d" }}>
+            {type === "Seller"
+              ? (chartData?.reduce((a, b) => a + (b.TotalUsers || 0), 0) ?? 0).toLocaleString()
+              : "—"}
+          </div>
+          <div className="ac-stat-sub">Active seller accounts</div>
+        </div>
+
+        {/* Sales */}
+        <div className="ac-stat">
+          <div className="ac-stat-glow" style={{ background: "#22c55e" }} />
+          <div className="ac-stat-label">
+            <span className="ac-stat-label-dot" style={{ background: "#22c55e" }} />
+            Total Sales
+          </div>
+          <div className="ac-stat-value" style={{ color: "#86efac" }}>
+            ₹{(chartData?.reduce((a, b) => a + (b.TotalSales || 0), 0) ?? 0).toLocaleString("en-IN")}
+          </div>
+          <div className="ac-stat-sub">Revenue this period</div>
+        </div>
+      </div>
+
+      {/* ── CHART ── */}
+      <div className="ac-chart-wrap">
+        <div className="ac-chart-header">
+          <span className="ac-chart-label">Monthly Breakdown</span>
+          <div className="ac-chart-legend">
+            {chartData?.some(d => d.TotalUsers) && (
+              <div className="ac-legend-item">
+                <div className="ac-legend-swatch" style={{ background: type === "Seller" ? "#f59e0b" : "#3b82f6" }} />
+                {type === "Seller" ? "Sellers" : "Users"}
+              </div>
+            )}
+            {chartData?.some(d => d.TotalSales) && (
+              <div className="ac-legend-item">
+                <div className="ac-legend-swatch" style={{ background: "#22c55e" }} />
+                Sales
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="ac-chart-scroll">
+          {chartData?.length > 0 ? (
+            <BarChart
+              width={context?.windowWidth > 1100 ? context.windowWidth - 400 : 900}
+              height={380}
+              data={chartData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+            >
+              <defs>
+                <linearGradient id="gradUser" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="gradSeller" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#15803d" stopOpacity={0.8} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="rgba(139,92,246,0.12)"
+              />
+
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#a78bca", fontFamily: "Outfit" }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{ fontSize: 11, fill: "#a78bca", fontFamily: "Outfit" }}
+                axisLine={false}
+                tickLine={false}
+                width={55}
+              />
+
+              <Tooltip
+                cursor={{ fill: "rgba(124,58,237,0.08)", radius: 6 }}
+                contentStyle={{
+                  backgroundColor: "#1a0a3d",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  color: "#ede9fe",
+                  fontFamily: "Outfit",
+                  fontSize: "13px",
+                  boxShadow: "0 8px 32px rgba(10,2,30,0.6)",
+                  padding: "10px 14px",
+                }}
+                labelStyle={{ color: "#a78bca", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "4px" }}
+                formatter={(value, name) =>
+                  name === "TotalSales"
+                    ? [`₹${value.toLocaleString("en-IN")}`, "Total Sales"]
+                    : [value.toLocaleString(), type === "Seller" ? "Sellers" : "Users"]
+                }
+              />
+
+              <Bar
+                dataKey="TotalUsers"
+                radius={[6, 6, 0, 0]}
+                fill={type === "Seller" ? "url(#gradSeller)" : "url(#gradUser)"}
+                maxBarSize={40}
+              />
+
+              <Bar
+                dataKey="TotalSales"
+                radius={[6, 6, 0, 0]}
+                fill="url(#gradSales)"
+                maxBarSize={40}
+              />
+            </BarChart>
+          ) : (
+            <div className="ac-empty">
+              <div className="ac-empty-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6"  y1="20" x2="6"  y2="14" />
+                </svg>
+              </div>
+              <div className="ac-empty-text">No data available</div>
+              <div className="ac-empty-sub">Select a metric above to load chart data</div>
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
-
-    {/* Summary Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-4">
-      <div className="p-4 rounded-lg bg-blue-50">
-        <p className="text-sm text-gray-500 capitalize">Total User</p>
-        <h3 className="text-2xl font-bold text-blue-600">
-          {type=="User"?(chartData?.reduce((a, b) => a + (b.TotalUsers || 0), 0)):0}
-        </h3>
-      </div>
-      <div className="p-4 rounded-lg bg-blue-50">
-        <p className="text-sm text-gray-500 capitalize">Total Seller</p>
-        <h3 className="text-2xl font-bold text-orange-600">
-          {type=="Seller"?(chartData?.reduce((a, b) => a + (b.TotalUsers || 0), 0)):0}
-        </h3>
-      </div>
-      <div className="p-4 rounded-lg bg-green-50">
-        <p className="text-sm text-gray-500">Total Sales</p>
-        <h3 className="text-2xl font-bold text-green-600">
-          ₹{chartData?.reduce((a, b) => a + (b.TotalSales || 0), 0)?.toLocaleString("en-IN")}
-        </h3>
-      </div>
-    </div>
-
-    {/* Chart */}
-    <div className="px-6 pb-6 overflow-x-auto">
-      {chartData?.length > 0 && (
-        <BarChart
-          width={context?.windowWidth > 1100 ? context.windowWidth - 400 : 900}
-          height={420}
-          data={chartData}
-          margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 12 }}
-            axisLine={false}
-          />
-
-          <YAxis
-            tick={{ fontSize: 12 }}
-            axisLine={false}
-          />
-
-          <Tooltip
-            cursor={{ fill: "rgba(0,0,0,0.04)" }}
-            contentStyle={{
-              backgroundColor: "#111827",
-              borderRadius: "8px",
-              border: "none",
-              color: "#fff"
-            }}
-            formatter={(value, name) =>
-              name === "TotalSales"
-                ? [`₹${value.toLocaleString("en-IN")}`, "Total Sales"]
-                : [value, "Total Users"]
-            }
-          />
-
-          <Legend />
-
-          <Bar
-            dataKey="TotalUsers"
-            radius={[6, 6, 0, 0]}
-            fill={type === "Seller" ? "#f59e0b" : "#2563eb"}
-          />
-
-          <Bar
-            dataKey="TotalSales"
-            radius={[6, 6, 0, 0]}
-            fill="#16a34a"
-          />
-        </BarChart>
-      )}
-    </div>
-  </div>
+  </>
 )}
 
     </>
