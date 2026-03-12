@@ -33,6 +33,8 @@ const VideoTable = ({ refresh }) => {
   const enableVideo = async (payload) => {
     if (context?.userData?.role === "ADMIN") {
       setLoading(payload.id);
+      console.log("payload.idpayload.idpayload.idpayload.id0",payload);
+      
       await postData(`/api/product/approve-video`, payload);
       await fetchVideos();
       setLoading(false);
