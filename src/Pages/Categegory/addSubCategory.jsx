@@ -11,7 +11,12 @@ import { useNavigate } from 'react-router-dom';
 
 const AddSubCategory = () => {
     const [productCat, setProductCat] = useState('');
+
+    // Third-level form: pick a top-level Category first, which filters the
+    // Sub Category dropdown down to only that category's children.
+    const [thirdLevelParentCat, setThirdLevelParentCat] = useState('');
     const [productCat2, setProductCat2] = useState('');
+
     const [isLoading, setIsLoading] = useState(false);
     const [isLoading2, setIsLoading2] = useState(false);
 
@@ -32,51 +37,65 @@ const AddSubCategory = () => {
     const context = useContext(MyContext);
     const history = useNavigate();
 
+    // The top-level category currently chosen in the third-level form,
+    // used purely to derive the filtered Sub Category list below.
+    const thirdLevelParentCatObj = context?.catData?.find(cat => cat?._id === thirdLevelParentCat);
+
     const handleChangeProductCat = (event) => {
-        setProductCat(event.target.value);
-        formFields.parentId = event.target.value
+        const catId = event.target.value;
+        const catObj = context?.catData?.find(cat => cat?._id === catId);
+
+        setProductCat(catId);
+        setFormFields(prev => ({
+            ...prev,
+            parentId: catId,
+            parentCatName: catObj?.name || null,
+        }));
+    };
+
+    const handleChangeThirdLevelParentCat = (event) => {
+        const catId = event.target.value;
+
+        setThirdLevelParentCat(catId);
+        // Reset the sub category choice whenever the parent category changes,
+        // since its options depend entirely on which category is selected.
+        setProductCat2('');
+        setFormFields2(prev => ({
+            ...prev,
+            parentId: null,
+            parentCatName: null,
+        }));
     };
 
     const handleChangeProductCat2 = (event) => {
-        setProductCat2(event.target.value);
-        formFields2.parentId = event.target.value
+        const subCatId = event.target.value;
+        const subCatObj = thirdLevelParentCatObj?.children?.find(sub => sub?._id === subCatId);
+
+        setProductCat2(subCatId);
+        setFormFields2(prev => ({
+            ...prev,
+            parentId: subCatId,
+            parentCatName: subCatObj?.name || null,
+        }));
     };
-
-
-    const selecteCatFun = (catName) => {
-        formFields.parentCatName = catName
-    }
-
-    const selecteCatFun2 = (catName) => {
-        formFields2.parentCatName = catName
-    }
 
     const onChangeInput = (e) => {
         const { name, value } = e.target;
 
-        const catId = productCat
-        setProductCat(catId);
-
-        setFormFields(() => {
-            return {
-                ...formFields,
-                [name]: value
-            }
-        })
+        setFormFields(prev => ({
+            ...prev,
+            [name]: value
+        }))
     }
 
 
     const onChangeInput2 = (e) => {
         const { name, value } = e.target;
-        const catId = productCat2
-        setProductCat2(catId);
 
-        setFormFields2(() => {
-            return {
-                ...formFields2,
-                [name]: value
-            }
-        })
+        setFormFields2(prev => ({
+            ...prev,
+            [name]: value
+        }))
     }
 
 
@@ -126,7 +145,7 @@ const AddSubCategory = () => {
         }
 
         if (productCat2 === "") {
-            context.alertBox("error", "Please select parent category");
+            context.alertBox("error", "Please select sub category");
             setIsLoading2(false);
             return false
         }
@@ -157,13 +176,15 @@ const AddSubCategory = () => {
                                 size="small"
                                 className='w-full'
                                 value={productCat}
+                                displayEmpty
                                 label="Category"
                                 onChange={handleChangeProductCat}
                             >
+                                <MenuItem value="" disabled>Select category</MenuItem>
                                 {
                                     context?.catData?.length !== 0 && context?.catData?.map((item, index) => {
                                         return (
-                                            <MenuItem key={index} value={item?._id} onClick={selecteCatFun(item?.name)}>{item?.name}</MenuItem>
+                                            <MenuItem key={index} value={item?._id}>{item?.name}</MenuItem>
                                         )
                                     })
                                 }
@@ -211,23 +232,50 @@ const AddSubCategory = () => {
                             <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Category</h3>
                             <Select
                                 labelId="demo-simple-select-label"
+                                id="thirdLevelParentCatDrop"
+                                size="small"
+                                className='w-full'
+                                value={thirdLevelParentCat}
+                                displayEmpty
+                                label="Category"
+                                onChange={handleChangeThirdLevelParentCat}
+                            >
+                                <MenuItem value="" disabled>Select category</MenuItem>
+                                {
+                                    context?.catData?.length !== 0 && context?.catData?.map((item, index) => {
+                                        return (
+                                            <MenuItem key={index} value={item?._id}>{item?.name}</MenuItem>
+                                        )
+                                    })
+                                }
+
+                            </Select>
+                        </div>
+
+                        {/* Sub Category — locked until a top-level Category is chosen above.
+                            Options come only from that category's children, so a mismatched
+                            sub category (belonging to a different parent) can never be picked. */}
+                        <div className='col'>
+                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Sub Category</h3>
+                            <Select
+                                labelId="demo-simple-select-label"
                                 id="productCatDrop"
                                 size="small"
                                 className='w-full'
                                 value={productCat2}
+                                displayEmpty
+                                disabled={!thirdLevelParentCat}
                                 label="Category"
                                 onChange={handleChangeProductCat2}
                             >
+                                <MenuItem value="" disabled>
+                                    {thirdLevelParentCat ? "Select sub category" : "Select a category first"}
+                                </MenuItem>
                                 {
-                                    context?.catData?.length !== 0 && context?.catData?.map((item, index) => {
-                                       return(
-                                        item?.children?.length !== 0 && item?.children?.map((item2, index) => {
-                                            return (
-                                                <MenuItem key={index} value={item2?._id} onClick={selecteCatFun2(item2?.name)}>{item2?.name}</MenuItem>
-                                            )
-                                        })
-                                       )                                      
-
+                                    thirdLevelParentCatObj?.children?.map((item2, index) => {
+                                        return (
+                                            <MenuItem key={index} value={item2?._id}>{item2?.name}</MenuItem>
+                                        )
                                     })
                                 }
 
@@ -235,7 +283,7 @@ const AddSubCategory = () => {
                         </div>
 
                         <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Sub Category  Name</h3>
+                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Third Level Category Name</h3>
                             <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="name" value={formFields2.name} onChange={onChangeInput2} />
                         </div>
 

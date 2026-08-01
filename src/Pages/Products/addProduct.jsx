@@ -16,10 +16,42 @@ import Switch from '@mui/material/Switch';
 
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
+// Shared style tokens so every field looks the same
+const inputCls =
+    'w-full h-[42px] border border-gray-200 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 rounded-lg px-3 text-[13.5px] text-gray-800 bg-white transition-colors placeholder:text-gray-400';
+const labelCls = 'text-[13px] font-semibold mb-1.5 text-gray-700 block';
+const selectSx = {
+    width: '100%',
+    borderRadius: '8px',
+    fontSize: '13.5px',
+    backgroundColor: '#fff',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#c7d2fe' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#818cf8', borderWidth: '2px' },
+};
+
+const SectionCard = ({ title, subtitle, tag, children, className = '' }) => (
+    <div className={`bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 mb-5 ${className}`}>
+        {(title || tag) && (
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                {title && <h3 className="font-bold text-[16px] text-gray-900">{title}</h3>}
+                {tag && (
+                    <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1 whitespace-nowrap">
+                        {tag}
+                    </span>
+                )}
+            </div>
+        )}
+        {subtitle && <p className="text-[12.5px] text-gray-500 mb-5">{subtitle}</p>}
+        {children}
+    </div>
+);
 
 const AddProduct = () => {
     const [videoPreview, setVideoPreview] = useState(null);
     const [videoFile, setVideoFile] = useState(null);
+    const [bannerPreviews, setBannerPreviews] = useState([]);
+    const [fssaiImagePreviews, setFssaiImagePreviews] = useState([]);
     const [videoSuccess, setVideoSuccess] = useState(false);
     const [formFields, setFormFields] = useState({
         name: "",
@@ -42,8 +74,13 @@ const AddProduct = () => {
         bannerTitleName: "",
         bannerimages: [],
         isDisplayOnHomeBanner: false,
-        product_pincode : "",
-        shipment_days : "",
+        product_pincode: "",
+        shipment_days: "",
+        // FSSAI compliance declaration
+        fssaiCompliant: "",
+        fssaiLicenseNumber: "",
+        fssaiImages: [],
+        declarationStatus: "",
         variants: {
             color: [],
             ram: [],
@@ -54,9 +91,8 @@ const AddProduct = () => {
         }
     });
 
-
-
     const [productCat, setProductCat] = React.useState('');
+    const [productCatName, setProductCatName] = React.useState('');
     const [productSubCat, setProductSubCat] = React.useState('');
     const [productFeatured, setProductFeatured] = React.useState(false);
 
@@ -66,9 +102,13 @@ const AddProduct = () => {
 
     const [previews, setPreviews] = useState([]);
     const [videoPreviews, setVideoPreviews] = useState("");
-    const [bannerPreviews, setBannerPreviews] = useState([]);
 
     const [checkedSwitch, setCheckedSwitch] = useState(false);
+
+    // Product is treated as "food" whenever the selected category name mentions it —
+    // this is what gates the FSSAI declaration block below.
+    const isFoodCategory = productCatName?.toLowerCase().includes('food');
+
     const handleVideoSelect = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -86,7 +126,7 @@ const AddProduct = () => {
         setVideoFile(file);
         setVideoPreview(URL.createObjectURL(file));
 
-        // 🔥 Auto Upload
+        // Auto upload
         const formData = new FormData();
         formData.append("title", formFields.name);
         formData.append("user_id", context?.userData._id);
@@ -121,7 +161,44 @@ const AddProduct = () => {
         }
     };
 
+    const setFssaiImagesFun = (data) => {
+        let images = [];
 
+        if (Array.isArray(data)) {
+            images = data;
+        } else if (Array.isArray(data?.images)) {
+            images = data.images;
+        } else {
+            console.warn("setFssaiImagesFun received invalid data:", data);
+            return;
+        }
+
+        setFssaiImagePreviews(prev => {
+            const updated = [...prev, ...images];
+
+            setFormFields(state => ({
+                ...state,
+                fssaiImages: updated
+            }));
+
+            return updated;
+        });
+    };
+
+    const removeFssaiImg = (image, index) => {
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            setFssaiImagePreviews(prev => {
+                const updated = prev.filter((_, i) => i !== index);
+
+                setFormFields(state => ({
+                    ...state,
+                    fssaiImages: updated
+                }));
+
+                return updated;
+            });
+        });
+    };
 
     const [variantOptions, setVariantOptions] = useState({
         color: ["Red", "Blue", "Black"],
@@ -140,7 +217,6 @@ const AddProduct = () => {
         length: "",
         width: ""
     });
-
 
     const addVariant = (type) => {
         const value = variantInput[type].trim();
@@ -167,14 +243,16 @@ const AddProduct = () => {
         }));
     };
 
-
     const history = useNavigate();
 
     const context = useContext(MyContext);
 
+    // Derived: the full category object currently selected, and its sub category object.
+    // Used to build the Sub Category and Third Level Category dropdown options.
+    const selectedCatObject = context?.catData?.find(cat => cat?._id === productCat);
+    const selectedSubCatObject = selectedCatObject?.children?.find(subCat => subCat?._id === productSubCat);
 
     useEffect(() => {
-
         fetchDataFromApi("/api/product/productRAMS/get").then(res => {
             if (!res?.error) {
                 setVariantOptions(prev => ({
@@ -203,47 +281,81 @@ const AddProduct = () => {
         });
     }, []);
 
-
-
     const handleChangeProductCat = (event) => {
-        setProductCat(event.target.value);
-        setProductSubCat('')
+        const catId = event.target.value;
+        const catObj = context?.catData?.find(cat => cat?._id === catId);
+        const catName = catObj?.name || '';
+
+        setProductCat(catId);
+        setProductCatName(catName);
+        // Reset the downstream selections whenever the category changes,
+        // since sub category / third level options depend entirely on it.
+        setProductSubCat('');
         setProductThirdLavelCat('');
-        formFields.catId = event.target.value
-        formFields.category = event.target.value
 
+        setFormFields(prev => ({
+            ...prev,
+            catId,
+            category: catId,
+            catName,
+            // Clear stale child category data so it never rides along with a new parent
+            subCatId: "",
+            subCat: "",
+            thirdsubCatId: "",
+            thirdsubCat: "",
+            // Reset FSSAI answers whenever the category changes away from food
+            // so a stale answer never gets submitted for a non-food product.
+            ...(catName.toLowerCase().includes('food') ? {} : {
+                fssaiCompliant: "",
+                fssaiLicenseNumber: "",
+                declarationStatus: "",
+            })
+        }));
     };
-
-    const selectCatByName = (name) => {
-        formFields.catName = name
-    }
 
     const handleChangeProductSubCat = (event) => {
-        setProductSubCat(event.target.value);
-        setProductThirdLavelCat('');
-        formFields.subCatId = event.target.value
-    };
+        const subCatId = event.target.value;
+        const subCatObj = selectedCatObject?.children?.find(subCat => subCat?._id === subCatId);
 
-    const selectSubCatByName = (name) => {
-        formFields.subCat = name
-    }
+        setProductSubCat(subCatId);
+        // Reset third level whenever sub category changes, since its options
+        // depend entirely on the chosen sub category.
+        setProductThirdLavelCat('');
+
+        setFormFields(prev => ({
+            ...prev,
+            subCatId,
+            subCat: subCatObj?.name || "",
+            thirdsubCatId: "",
+            thirdsubCat: "",
+        }));
+    };
 
     const handleChangeProductThirdLavelCat = (event) => {
-        setProductThirdLavelCat(event.target.value);
-        formFields.thirdsubCatId = event.target.value
+        const thirdsubCatId = event.target.value;
+        const thirdCatObj = selectedSubCatObject?.children?.find(third => third?._id === thirdsubCatId);
+
+        setProductThirdLavelCat(thirdsubCatId);
+        setFormFields(prev => ({
+            ...prev,
+            thirdsubCatId,
+            thirdsubCat: thirdCatObj?.name || "",
+        }));
     };
-
-    const selectSubCatByThirdLavel = (name) => {
-        formFields.thirdsubCat = name
-    }
-
 
     const handleChangeProductFeatured = (event) => {
         setProductFeatured(event.target.value);
-        formFields.isFeatured = event.target.value
+        setFormFields(prev => ({ ...prev, isFeatured: event.target.value }));
     };
 
+    // FSSAI declaration handlers
+    const handleChangeFssaiCompliant = (event) => {
+        setFormFields(prev => ({ ...prev, fssaiCompliant: event.target.value }));
+    };
 
+    const handleChangeDeclarationStatus = (event) => {
+        setFormFields(prev => ({ ...prev, declarationStatus: event.target.value }));
+    };
 
     const onChangeInput = (e) => {
         const { name, value } = e.target;
@@ -253,16 +365,15 @@ const AddProduct = () => {
                 ...prev,
                 [name]: value
             };
-            if(name === "price" && prev.oldPrice){
+            if (name === "price" && prev.oldPrice) {
                 const price = Number(value);
                 const oldPrice = Number(prev.oldPrice);
-                const discount = Math.floor(((oldPrice - price) / oldPrice)*100);
-                updatedFields.discount = discount > 0 ? discount : 0 ;
+                const discount = Math.floor(((oldPrice - price) / oldPrice) * 100);
+                updatedFields.discount = discount > 0 ? discount : 0;
             }
             return updatedFields;
         });
     };
-
 
     const onChangeRating = (e) => {
         setFormFields((formFields) => (
@@ -273,75 +384,20 @@ const AddProduct = () => {
         ))
     }
 
+    const setPreviewsFun = (data) => {
+        let images = [];
 
-const setPreviewsFun = (data) => {
-    let images = [];
+        if (Array.isArray(data)) {
+            images = data;
+        } else if (Array.isArray(data?.images)) {
+            images = data.images;
+        } else {
+            console.warn("setPreviewsFun received invalid data:", data);
+            return;
+        }
 
-    // Case 1: UploadBox passed array directly
-    if (Array.isArray(data)) {
-        images = data;
-    }
-    // Case 2: UploadBox passed API response
-    else if (Array.isArray(data?.images)) {
-        images = data.images;
-    }
-    // Case 3: nothing passed
-    else {
-        console.warn("setPreviewsFun received invalid data:", data);
-        return;
-    }
-
-    setPreviews(prev => {
-        const updated = [...prev, ...images];
-
-        setFormFields(state => ({
-            ...state,
-            images: updated
-        }));
-
-        return updated;
-    });
-};
-
-
-
-    const setVideoPreviewsFun = (video) => {
-        setVideoPreviews([video[0]])
-        formFields.video = [video[0]]
-    }
-
-const setBannerImagesFun = (data) => {
-    let images = [];
-
-    if (Array.isArray(data)) {
-        images = data;
-    } else if (Array.isArray(data?.images)) {
-        images = data.images;
-    } else {
-        console.warn("setBannerImagesFun received invalid data:", data);
-        return;
-    }
-
-    setBannerPreviews(prev => {
-        const updated = [...prev, ...images];
-
-        setFormFields(state => ({
-            ...state,
-            bannerimages: updated
-        }));
-
-        return updated;
-    });
-};
-
-
-
-
-
-const removeImg = (image, index) => {
-    deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
         setPreviews(prev => {
-            const updated = prev.filter((_, i) => i !== index);
+            const updated = [...prev, ...images];
 
             setFormFields(state => ({
                 ...state,
@@ -350,14 +406,27 @@ const removeImg = (image, index) => {
 
             return updated;
         });
-    });
-};
+    };
 
+    const setVideoPreviewsFun = (video) => {
+        setVideoPreviews([video[0]])
+        setFormFields(prev => ({ ...prev, video: [video[0]] }));
+    }
 
-const removeBannerImg = (image, index) => {
-    deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+    const setBannerImagesFun = (data) => {
+        let images = [];
+
+        if (Array.isArray(data)) {
+            images = data;
+        } else if (Array.isArray(data?.images)) {
+            images = data.images;
+        } else {
+            console.warn("setBannerImagesFun received invalid data:", data);
+            return;
+        }
+
         setBannerPreviews(prev => {
-            const updated = prev.filter((_, i) => i !== index);
+            const updated = [...prev, ...images];
 
             setFormFields(state => ({
                 ...state,
@@ -366,20 +435,47 @@ const removeBannerImg = (image, index) => {
 
             return updated;
         });
-    });
-};
+    };
 
+    const removeImg = (image, index) => {
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            setPreviews(prev => {
+                const updated = prev.filter((_, i) => i !== index);
 
+                setFormFields(state => ({
+                    ...state,
+                    images: updated
+                }));
 
-const handleChangeSwitch = (event) => {
-    const checked = event.target.checked;
-    setCheckedSwitch(checked);
+                return updated;
+            });
+        });
+    };
 
-    setFormFields(prev => ({
-        ...prev,
-        isDisplayOnHomeBanner: checked
-    }));
-};
+    const removeBannerImg = (image, index) => {
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            setBannerPreviews(prev => {
+                const updated = prev.filter((_, i) => i !== index);
+
+                setFormFields(state => ({
+                    ...state,
+                    bannerimages: updated
+                }));
+
+                return updated;
+            });
+        });
+    };
+
+    const handleChangeSwitch = (event) => {
+        const checked = event.target.checked;
+        setCheckedSwitch(checked);
+
+        setFormFields(prev => ({
+            ...prev,
+            isDisplayOnHomeBanner: checked
+        }));
+    };
 
     const handleSubmitg = (e) => {
         e.preventDefault(0);
@@ -406,11 +502,11 @@ const handleChangeSwitch = (event) => {
             context.alertBox("error", "Please enter product MRP");
             return false;
         }
-        if (formFields?.shipment_days === ""){
+        if (formFields?.shipment_days === "") {
             context.alertBox("error", "Please enter Expected Shipment Days");
             return false;
         }
-        if (formFields?.product_pincode === ""){
+        if (formFields?.product_pincode === "") {
             context.alertBox("error", "Please enter Product PIN code");
             return false;
         }
@@ -430,6 +526,31 @@ const handleChangeSwitch = (event) => {
             context.alertBox("error", "Please enter  product rating");
             return false;
         }
+        if (formFields?.fssaiImages.length === 0) {
+            context.alertBox("error", "Please upload your FSSAI license/packaging document");
+            return false;
+        }
+
+        // FSSAI checks only apply to products under a Food category
+        if (isFoodCategory) {
+            if (formFields?.fssaiCompliant === "") {
+                context.alertBox("error", "Please answer the packaging compliance question");
+                return false;
+            }
+            if (formFields?.fssaiLicenseNumber.trim() === "") {
+                context.alertBox("error", "Please enter your FSSAI License Number");
+                return false;
+            }
+            if (formFields?.declarationStatus === "") {
+                context.alertBox("error", "Please accept the FSSAI declaration to continue");
+                return false;
+            }
+            if (formFields?.declarationStatus === "Decline") {
+                context.alertBox("error", "You must accept the declaration to publish this product");
+                return false;
+            }
+        }
+
         formFields.seller = context?.userData._id
         formFields.seller_name = context?.userData.name
 
@@ -457,402 +578,456 @@ const handleChangeSwitch = (event) => {
         })
     }
 
+    const canPublish = !isFoodCategory || formFields.declarationStatus === "Accept";
+
     return (
-        <section className='p-5 bg-gray-50'>
-            <form className='form py-1 p-1 md:p-8 md:py-1' onSubmit={handleSubmitg}>
-                <div className='scroll max-h-[72vh] overflow-y-scroll pr-4'>
+        <section className="bg-white">
+            <form className="py-1 p-1 md:p-6 md:py-1" onSubmit={handleSubmitg}>
+                <div className="scroll max-h-[74vh] overflow-y-scroll pr-2 -mr-2">
 
-                    <div className='grid grid-cols-1 mb-3'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Name</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="name" value={formFields.name} onChange={onChangeInput} />
+                    <SectionCard title="Basic details" subtitle="Name and describe the product the way customers will see it.">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <h3 className={labelCls}>Product Name</h3>
+                                <input type="text" className={inputCls} name="name" value={formFields.name} onChange={onChangeInput} placeholder="e.g. Classic Cotton T-Shirt" />
+                            </div>
+                            <div>
+                                <h3 className={labelCls}>Product Description</h3>
+                                <textarea className={`${inputCls} h-[130px] py-3 resize-none`} name="description" value={formFields.description} onChange={onChangeInput} placeholder="What makes this product worth buying?" />
+                            </div>
                         </div>
-                    </div>
+                    </SectionCard>
 
-                    <div className='grid grid-cols-1 mb-3'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Description</h3>
-                            <textarea type="text" className='w-full h-[140px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="description" value={formFields.description} onChange={onChangeInput} />
-                        </div>
-                    </div>
+                    <SectionCard title="Category & pricing" subtitle="Where this product lives in the catalog, and what it costs.">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <h3 className={labelCls}>Product Category</h3>
+                                {context?.catData?.length !== 0 &&
+                                    <Select
+                                        size="small"
+                                        sx={selectSx}
+                                        value={productCat}
+                                        displayEmpty
+                                        onChange={handleChangeProductCat}
+                                    >
+                                        <MenuItem value="" disabled>Select category</MenuItem>
+                                        {context?.catData?.map((cat, index) => (
+                                            <MenuItem value={cat?._id} key={index}>{cat?.name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                }
+                            </div>
 
-
-
-                    <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mb-3 gap-4'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productCat}
-                                    label="Category"
-                                    onChange={handleChangeProductCat}
-                                >
-                                    {
-                                        context?.catData?.map((cat, index) => {
-                                            return (
-                                                <MenuItem value={cat?._id} key={index}
-                                                    onClick={() => selectCatByName(cat?.name)}>{cat?.name}</MenuItem>
-                                            )
-                                        })
-                                    }
-
-                                </Select>
-                            }
-
-
-                        </div>
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Sub Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productSubCat}
-                                    label="Sub Category"
-                                    onChange={handleChangeProductSubCat}
-                                >
-                                    {
-                                        context?.catData?.map((cat, index) => {
-                                            return (
-                                                cat?.children?.length !== 0 && cat?.children?.map((subCat, index) => {
-                                                    if (productCat == subCat.parentId) {
-                                                        return (
-                                                            <MenuItem value={subCat?._id} key={index}
-                                                                onClick={() => selectSubCatByName(subCat?.name)}
-                                                            >
-                                                                {subCat?.name}
-                                                            </MenuItem>
-                                                        )
-                                                    }
-                                                })
-
-                                            )
-                                        })
-                                    }
-
-                                </Select>
-                            }
-
-
-
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Third Lavel Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productThirdLavelCat}
-                                    label="Sub Category"
-                                    onChange={handleChangeProductThirdLavelCat}
-                                >
-                                    {
-                                        context?.catData?.map((cat) => {
-                                            return (
-                                                cat?.children?.length !== 0 && cat?.children?.map((subCat) => {
-                                                    return (
-                                                        subCat?.children?.length !== 0 && subCat?.children?.map((thirdLavelCat, index) => {
-                                                            if (productSubCat == thirdLavelCat?.parentId) {
-                                                                return <MenuItem value={thirdLavelCat?._id} key={index}
-                                                                    onClick={() => selectSubCatByThirdLavel(thirdLavelCat?.name)}>{thirdLavelCat?.name}</MenuItem>
-                                                            }
-                                                        })
-
-                                                    )
-                                                })
-
-                                            )
-                                        })
-                                    }
-
-                                </Select>
-                            }
-
-
-
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product MRP</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} />
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product Price</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="price" value={formFields.price} onChange={onChangeInput} />
-                        </div>
-
-                        {context.userData.role === "ADMIN" && <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Is Featured?</h3>
-                            <Select
-                                labelId="demo-simple-select-label"
-                                id="productCatDrop"
-                                size="small"
-                                className='w-full'
-                                value={productFeatured}
-                                label="Category"
-                                onChange={handleChangeProductFeatured}
-                            >
-                                <MenuItem value={true}>True</MenuItem>
-                                <MenuItem value={false}>False</MenuItem>
-                            </Select>
-                        </div>}
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Stock</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="countInStock" value={formFields.countInStock} onChange={onChangeInput} />
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Model</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="brand" value={formFields.brand} onChange={onChangeInput} />
-                        </div>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Discount</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="discount" value={formFields.discount} disabled onChange={onChangeInput} />
-                        </div>
-                        <div>
-                            <h3 className="text-[14px] font-[500] mb-1">Expected Shipment Days</h3>
-                            <input type="number" value={formFields.shipment_days} name='shipment_days' onChange={onChangeInput} className="w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm" />
-                        </div>
-                        <div>
-                            <h3 className="text-[14px] font-[500] mb-1">Product PIN Code</h3>
-                            <input type="number" value={formFields.product_pincode} name='product_pincode' onChange={onChangeInput} className="w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm" />
-                        </div>
-                    </div>
-
-
-
-
-                    {context.userData.role === "ADMIN" && <div className='grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4 mb-3 gap-4'>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product Rating </h3>
-                            <Rating name="half-rating" defaultValue={0} onChange={onChangeRating} />
-                        </div>
-
-
-                    </div>}
-
-                    <h3 className="font-[700] text-[18px] mt-5 mb-3">Product Variants</h3>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {["color", "ram", "weight", "size", "length", "width"].map(type => (
-                            <div key={type}>
-                                <h3 className="text-[14px] font-[500] mb-1 upped">{type}</h3>
-
-                                <Select
-                                    size="small"
-                                    className="w-full"
-                                    value=""
-                                    onChange={e =>
-                                        setVariantInput(prev => ({ ...prev, [type]: e.target.value }))
-                                    }
-                                >
-                                    {variantOptions[type]?.map((opt, i) => (
-                                        <MenuItem key={i} value={opt}>
-                                            {opt}
+                            {/* Sub Category — locked until a Category is selected. Options are
+                                derived only from the selected category's children, so a
+                                mismatched sub category can never be chosen. */}
+                            <div>
+                                <h3 className={labelCls}>Sub Category</h3>
+                                {context?.catData?.length !== 0 &&
+                                    <Select
+                                        size="small"
+                                        sx={selectSx}
+                                        value={productSubCat}
+                                        displayEmpty
+                                        disabled={!productCat}
+                                        onChange={handleChangeProductSubCat}
+                                    >
+                                        <MenuItem value="" disabled>
+                                            {productCat ? "Select sub category" : "Select a category first"}
                                         </MenuItem>
-                                    ))}
-                                </Select>
+                                        {selectedCatObject?.children?.map((subCat, i2) => (
+                                            <MenuItem value={subCat?._id} key={i2}>
+                                                {subCat?.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                }
+                            </div>
 
-                                <div className="flex gap-2 mt-2">
-                                    <input
-                                        type="text"
-                                        className="w-full h-[36px] border border-gray-300 rounded px-2 text-sm"
-                                        placeholder={`Add custom ${type}`}
-                                        value={variantInput[type]}
+                            {/* Third Level Category — locked until a Sub Category is selected.
+                                Options are derived only from the selected sub category's children. */}
+                            <div>
+                                <h3 className={labelCls}>Third Level Category</h3>
+                                {context?.catData?.length !== 0 &&
+                                    <Select
+                                        size="small"
+                                        sx={selectSx}
+                                        value={productThirdLavelCat}
+                                        displayEmpty
+                                        disabled={!productSubCat}
+                                        onChange={handleChangeProductThirdLavelCat}
+                                    >
+                                        <MenuItem value="" disabled>
+                                            {productSubCat ? "Select third level" : "Select a sub category first"}
+                                        </MenuItem>
+                                        {selectedSubCatObject?.children?.map((thirdLavelCat, i3) => (
+                                            <MenuItem value={thirdLavelCat?._id} key={i3}>
+                                                {thirdLavelCat?.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                }
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product MRP</h3>
+                                <input type="number" className={inputCls} name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} placeholder="0.00" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product Price</h3>
+                                <input type="number" className={inputCls} name="price" value={formFields.price} onChange={onChangeInput} placeholder="0.00" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product Discount</h3>
+                                <input type="number" className={`${inputCls} bg-gray-50 text-gray-500`} name="discount" value={formFields.discount} disabled onChange={onChangeInput} />
+                            </div>
+
+                            {context.userData.role === "ADMIN" && (
+                                <div>
+                                    <h3 className={labelCls}>Is Featured?</h3>
+                                    <Select
+                                        size="small"
+                                        sx={selectSx}
+                                        value={productFeatured}
+                                        onChange={handleChangeProductFeatured}
+                                    >
+                                        <MenuItem value={true}>True</MenuItem>
+                                        <MenuItem value={false}>False</MenuItem>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div>
+                                <h3 className={labelCls}>Product Stock</h3>
+                                <input type="number" className={inputCls} name="countInStock" value={formFields.countInStock} onChange={onChangeInput} placeholder="0" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product Model</h3>
+                                <input type="text" className={inputCls} name="brand" value={formFields.brand} onChange={onChangeInput} placeholder="Model / brand" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Expected Shipment Days</h3>
+                                <input type="number" className={inputCls} value={formFields.shipment_days} name="shipment_days" onChange={onChangeInput} placeholder="e.g. 3" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product PIN Code</h3>
+                                <input type="number" className={inputCls} value={formFields.product_pincode} name="product_pincode" onChange={onChangeInput} placeholder="e.g. 682001" />
+                            </div>
+
+                            {context.userData.role === "ADMIN" && (
+                                <div>
+                                    <h3 className={labelCls}>Product Rating</h3>
+                                    <Rating name="half-rating" defaultValue={0} onChange={onChangeRating} />
+                                </div>
+                            )}
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard title="Product variants" subtitle="Pick from existing options or add your own for each attribute.">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {["color", "ram", "weight", "size", "length", "width"].map(type => (
+                                <div key={type} className="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
+                                    <h3 className={`${labelCls} capitalize`}>{type}</h3>
+
+                                    <Select
+                                        size="small"
+                                        sx={{ ...selectSx, mb: 1 }}
+                                        value=""
+                                        displayEmpty
                                         onChange={e =>
                                             setVariantInput(prev => ({ ...prev, [type]: e.target.value }))
                                         }
-                                    />
-                                    <Button variant="contained" size="small" onClick={() => addVariant(type)}>
-                                        Add
-                                    </Button>
-                                </div>
+                                    >
+                                        <MenuItem value="" disabled>Choose existing</MenuItem>
+                                        {variantOptions[type]?.map((opt, i) => (
+                                            <MenuItem key={i} value={opt}>
+                                                {opt}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
 
-                                <div className="flex gap-2 flex-wrap mt-2">
-                                    {formFields.variants[type].map((item, i) => (
-                                        <span
-                                            key={i}
-                                            className="bg-gray-200 px-2 py-1 rounded text-sm flex items-center gap-1"
-                                        >
-                                            {item}
-                                            <IoMdClose
-                                                className="cursor-pointer"
-                                                onClick={() => removeVariant(type, item)}
-                                            />
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-
-
-                    <div className='col w-full p-5 px-0'>
-                        <h3 className="font-[700] text-[18px] mb-3">Media & Images</h3>
-
-                        <div className="grid gap-2 grid-row">
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-                                {
-                                    previews?.length !== 0 && previews?.map((image, index) => {
-                                        return (
-                                            <div className="uploadBoxWrapper relative" key={index}>
-
-                                                <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                                <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                    <img src={image} className='w-100' />
-                                                </div>
-                                            </div>
-                                        )
-                                    })
-                                }
-
-
-                                <UploadBox
-                                    multiple={true}
-                                    name="images"
-                                    url="/api/product/uploadImages"
-                                    setPreviewsFun={setPreviewsFun}
-                                    />
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-
-                                {/* Video Preview */}
-                                {videoPreview && (
-                                    <div className="relative">
-                                        <span
-                                            className="absolute w-[20px] h-[20px] rounded-full bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer"
-                                            onClick={() => {
-                                                setVideoPreview(null);
-                                                setVideoFile(null);
-                                            }}
-                                        >
-                                            <IoMdClose className="text-white text-[17px]" />
-                                        </span>
-
-                                        <div className="h-[150px] bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
-                                            <video
-                                                src={videoPreview}
-                                                controls
-                                                className="h-full w-full object-cover"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Upload Box */}
-                                {!videoPreview && (
-                                    <label className="h-[150px] border border-dashed rounded-md bg-gray-100 hover:bg-gray-200 flex flex-col items-center justify-center cursor-pointer">
-                                        <span className="text-sm text-gray-600">Upload Video</span>
+                                    <div className="flex gap-2 mt-1">
                                         <input
-                                            type="file"
-                                            accept="video/*"
-                                            hidden
-                                            onChange={handleVideoSelect}
+                                            type="text"
+                                            className={`${inputCls} h-[36px]`}
+                                            placeholder={`Add custom ${type}`}
+                                            value={variantInput[type]}
+                                            onChange={e =>
+                                                setVariantInput(prev => ({ ...prev, [type]: e.target.value }))
+                                            }
                                         />
-                                    </label>
-                                )}
-                            </div>
+                                        <Button variant="contained" size="small" disableElevation onClick={() => addVariant(type)}>
+                                            Add
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex gap-2 flex-wrap mt-2">
+                                        {formFields.variants[type].map((item, i) => (
+                                            <span
+                                                key={i}
+                                                className="bg-white border border-gray-200 px-2 py-1 rounded-md text-[12.5px] flex items-center gap-1 text-gray-700"
+                                            >
+                                                {item}
+                                                <IoMdClose
+                                                    className="cursor-pointer text-gray-400 hover:text-red-500"
+                                                    onClick={() => removeVariant(type, item)}
+                                                />
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+                    </SectionCard>
 
-
-                    </div>
-
-                    <div className='col w-full p-5 px-0'>
-
-                        <div className='bg-gray-100 p-4 w-full'>
-                            <div className="flex items-center gap-8">
-                                <h3 className="font-[700] text-[18px] mb-3">Banner Images</h3>
-                                <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-
-                                {
-                                    bannerPreviews?.length !== 0 && bannerPreviews?.map((image, index) => {
-                                        return (
-                                            <div className="uploadBoxWrapper relative" key={index}>
-
-                                                <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeBannerImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                                <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                    <img src={image} className='w-100' />
-                                                </div>
+                    <SectionCard title="Media & images" subtitle="Upload clear, well-lit photos and an optional product video.">
+                        <div className="grid gap-5">
+                            <div>
+                                <h4 className="text-[12.5px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">Images</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {previews?.length !== 0 && previews?.map((image, index) => (
+                                        <div className="relative" key={index}>
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => removeImg(image, index)}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
+                                            <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                                <img src={image} className="w-full h-full object-cover" />
                                             </div>
-                                        )
-                                    })
-                                }
-                                {checkedSwitch && (
+                                        </div>
+                                    ))}
+
                                     <UploadBox
-                                        multiple
-                                        name="bannerimages"
-                                        url="/api/product/uploadBannerImages"
-                                        setPreviewsFun={setBannerImagesFun}
+                                        multiple={true}
+                                        name="images"
+                                        url="/api/product/uploadImages"
+                                        setPreviewsFun={setPreviewsFun}
                                     />
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-[12.5px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">Video</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {videoPreview && (
+                                        <div className="relative">
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => {
+                                                    setVideoPreview(null);
+                                                    setVideoFile(null);
+                                                }}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
+
+                                            <div className="h-[120px] bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                                                <video
+                                                    src={videoPreview}
+                                                    controls
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            </div>
+                                        </div>
                                     )}
 
-
-                                {/* <UploadBox multiple={true} name="bannerimages" url="/api/product/uploadBannerImages" setPreviewsFun={setBannerImagesFun} /> */}
+                                    {!videoPreview && (
+                                        <label className="h-[120px] border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                                            <FaCloudUploadAlt className="text-gray-400 text-[20px] mb-1" />
+                                            <span className="text-[12.5px] text-gray-500">Upload video</span>
+                                            <input
+                                                type="file"
+                                                accept="video/*"
+                                                hidden
+                                                onChange={handleVideoSelect}
+                                            />
+                                        </label>
+                                    )}
+                                </div>
                             </div>
+                        </div>
+                    </SectionCard>
 
-
-                            <br />
-
-                            <h3 className="font-[700] text-[18px] mb-3">Banner Title</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} />
+                    <SectionCard>
+                        <div className="flex items-center gap-4 mb-4">
+                            <h3 className="font-bold text-[16px] text-gray-900">Banner images</h3>
+                            <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
+                            <span className="text-[12.5px] text-gray-500">{checkedSwitch ? "Shown on home banner" : "Not shown on home banner"}</span>
                         </div>
 
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-5">
+                            {bannerPreviews?.length !== 0 && bannerPreviews?.map((image, index) => (
+                                <div className="relative" key={index}>
+                                    <span
+                                        className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                        onClick={() => removeBannerImg(image, index)}
+                                    >
+                                        <IoMdClose className="text-white text-[14px]" />
+                                    </span>
+                                    <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                        <img src={image} className="w-full h-full object-cover" />
+                                    </div>
+                                </div>
+                            ))}
+                            {checkedSwitch && (
+                                <UploadBox
+                                    multiple
+                                    name="bannerimages"
+                                    url="/api/product/uploadBannerImages"
+                                    setPreviewsFun={setBannerImagesFun}
+                                />
+                            )}
+                        </div>
 
+                        <h3 className={labelCls}>Banner Title</h3>
+                        <input type="text" className={inputCls} name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} placeholder="Optional headline for the home banner" />
+                    </SectionCard>
 
-                    </div>
+                    {/* FSSAI Compliance Declaration — only relevant for products under a Food category */}
+                    {isFoodCategory && (
+                        <SectionCard
+                            title="FSSAI compliance declaration"
+                            subtitle="Confirm your product packaging and license details before publishing."
+                            tag="Required for food products"
+                            className={
+                                formFields.declarationStatus === "Accept"
+                                    ? "!border-green-200"
+                                    : formFields.declarationStatus === "Decline"
+                                        ? "!border-red-200"
+                                        : ""
+                            }
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div className="flex flex-col">
+                                    <h4 className="text-[13.5px] font-semibold text-gray-800 leading-snug min-h-[42px] flex items-start">
+                                        Do all your products have Manufacturer/Importer Details, Veg/Non-Veg mark, and MRP mentioned on the primary packaging? <span className="text-red-600 ml-1">*</span>
+                                    </h4>
+                                    <Select
+                                        size="small"
+                                        sx={{ ...selectSx, mt: 1 }}
+                                        displayEmpty
+                                        value={formFields.fssaiCompliant}
+                                        onChange={handleChangeFssaiCompliant}
+                                    >
+                                        <MenuItem value="" disabled>Select an option</MenuItem>
+                                        <MenuItem value="Yes">Yes</MenuItem>
+                                        <MenuItem value="No">No</MenuItem>
+                                    </Select>
+                                </div>
+
+                                <div className="flex flex-col">
+                                    <h4 className="text-[13.5px] font-semibold text-gray-800 leading-snug min-h-[42px] flex items-start">
+                                        FSSAI License Number <span className="text-red-600 ml-1">*</span>
+                                    </h4>
+                                    <input
+                                        type="text"
+                                        name="fssaiLicenseNumber"
+                                        value={formFields.fssaiLicenseNumber}
+                                        onChange={onChangeInput}
+                                        placeholder="e.g. 12345678901234"
+                                        className={`${inputCls} mt-1`}
+                                    />
+                                </div>
+                            </div>
+                            <div className="mb-6">
+                                <h4 className="text-[13.5px] font-semibold text-gray-800 mb-2">
+                                    Upload FSSAI License / Packaging Document <span className="text-red-600 ml-1">*</span>
+                                </h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {fssaiImagePreviews?.length !== 0 && fssaiImagePreviews?.map((image, index) => (
+                                        <div className="relative" key={index}>
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => removeFssaiImg(image, index)}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
+                                            <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                                <img src={image} className="w-full h-full object-cover" />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <UploadBox
+                                        multiple={false}
+                                        name="fssaiImages"
+                                        url="/api/product/uploadFssaiImages"
+                                        setPreviewsFun={setFssaiImagesFun}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-6">
+                                <p className="text-[12.5px] leading-relaxed text-gray-600">
+                                    I acknowledge that I have read, and do hereby affirm my commitment to ensuring the ongoing accuracy, validity, and lawful authorization of the representation, warranty, covenant, and undertaking throughout my advertisement, distribution, marketing, supply, or sale of the food products on the Flipkart website. I acknowledge to be fully compliant with all applicable laws, including the Food Safety and Standards Act, 2006, Food Safety and Standards (Licensing and Registration of Food Business) Regulations, 2011, and Food Safety and Standards (Labelling &amp; Display) Regulations, 2020, as amended from time to time. Furthermore, I undertake to promptly address and resolve any complaints concerning product efficacy, quality, or other related matters.
+                                </p>
+                            </div>
+
+                            <div className="md:w-1/3">
+                                <h4 className="text-[13.5px] font-semibold mb-2 text-gray-800">
+                                    Accept Declaration <span className="text-red-600">*</span>
+                                </h4>
+                                <Select
+                                    size="small"
+                                    sx={selectSx}
+                                    displayEmpty
+                                    value={formFields.declarationStatus}
+                                    onChange={handleChangeDeclarationStatus}
+                                >
+                                    <MenuItem value="" disabled>Select</MenuItem>
+                                    <MenuItem value="Accept">Accept</MenuItem>
+                                    <MenuItem value="Decline">Decline</MenuItem>
+                                </Select>
+
+                                {formFields.declarationStatus === "Decline" && (
+                                    <p className="text-[12px] text-red-600 mt-2">
+                                        You must accept the declaration to publish this product.
+                                    </p>
+                                )}
+                            </div>
+                        </SectionCard>
+                    )}
 
                 </div>
 
-
-
-                <hr />
-                <br />
-                <Button type="submit" className="btn-blue btn-lg w-full flex gap-2">
-
-                    {
-                        isLoading === true ? <CircularProgress color="inherit" />
-                            :
-                            <>
-                                <FaCloudUploadAlt className='text-[25px] text-white' />
-                                Publish and View
-                            </>
-                    }
-                </Button>
-
+                <div className="border-t border-gray-200 pt-5 mt-2">
+                    {canPublish ? (
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disableElevation
+                            className="w-full flex gap-2"
+                            sx={{
+                                height: '46px',
+                                textTransform: 'none',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                borderRadius: '10px',
+                                backgroundColor: '#4f46e5',
+                                '&:hover': { backgroundColor: '#4338ca' },
+                            }}
+                        >
+                            {isLoading === true ? <CircularProgress size={22} color="inherit" />
+                                : (
+                                    <>
+                                        <FaCloudUploadAlt className="text-[20px] text-white" />
+                                        Publish and View
+                                    </>
+                                )}
+                        </Button>
+                    ) : (
+                        <div className="w-full text-center bg-gray-50 border border-dashed border-gray-300 rounded-lg py-3 text-[13px] text-gray-500">
+                            Accept the FSSAI declaration above to enable publishing
+                        </div>
+                    )}
+                </div>
             </form>
         </section>
     )

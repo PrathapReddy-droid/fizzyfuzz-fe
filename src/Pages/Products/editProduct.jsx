@@ -17,14 +17,44 @@ import Switch from '@mui/material/Switch';
 
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
+// Shared style tokens so every field looks the same
+const inputCls =
+    'w-full h-[42px] border border-gray-200 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 rounded-lg px-3 text-[13.5px] text-gray-800 bg-white transition-colors placeholder:text-gray-400';
+const labelCls = 'text-[13px] font-semibold mb-1.5 text-gray-700 block';
+const selectSx = {
+    width: '100%',
+    borderRadius: '8px',
+    fontSize: '13.5px',
+    backgroundColor: '#fff',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#c7d2fe' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#818cf8', borderWidth: '2px' },
+};
+
+const SectionCard = ({ title, subtitle, tag, children, className = '' }) => (
+    <div className={`bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 mb-5 ${className}`}>
+        {(title || tag) && (
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                {title && <h3 className="font-bold text-[16px] text-gray-900">{title}</h3>}
+                {tag && (
+                    <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1 whitespace-nowrap">
+                        {tag}
+                    </span>
+                )}
+            </div>
+        )}
+        {subtitle && <p className="text-[12.5px] text-gray-500 mb-5">{subtitle}</p>}
+        {children}
+    </div>
+);
 
 
 const EditProduct = () => {
-  
+
     const [videoPreviews, setVideoPreviews] = useState("");
     const [videoPreview, setVideoPreview] = useState("");
     const [videoFile, setVideoFile] = useState(null);
-    const [videoSuccess,setVideoSuccess] = useState(false);
+    const [videoSuccess, setVideoSuccess] = useState(false);
     const [formFields, setFormFields] = useState({
         name: "",
         description: "",
@@ -48,9 +78,9 @@ const EditProduct = () => {
         productWeight: [],
         bannerTitleName: '',
         bannerimages: [],
-        isDisplayOnHomeBanner:false,
-        shipment_days : '' ,
-        product_pincode : '' ,
+        isDisplayOnHomeBanner: false,
+        shipment_days: '',
+        product_pincode: '',
         variants: {
             color: [],
             ram: [],
@@ -140,15 +170,15 @@ const EditProduct = () => {
         length: [],
         width: [],
     });
-    useEffect(()=>{
-      console.log("context",context)
-    },[context])
+    useEffect(() => {
+        console.log("context", context)
+    }, [context])
     const [variantInput, setVariantInput] = useState({
         color: [],
         ram: [],
         weight: [],
         size: [],
-        length: [] ,
+        length: [],
         width: []
     });
     const addVariant = (type) => {
@@ -165,7 +195,7 @@ const EditProduct = () => {
 
         setVariantInput(prev => ({ ...prev, [type]: "" }));
     };
-        const removeVariant = (type, value) => {
+    const removeVariant = (type, value) => {
         setFormFields(prev => ({
             ...prev,
             variants: {
@@ -201,7 +231,7 @@ const EditProduct = () => {
                 description: res?.product?.description,
                 images: res?.product?.images,
                 brand: res?.product?.brand,
-                price:Number(res?.product?.price || 0) ,
+                price: Number(res?.product?.price || 0),
                 oldPrice: Number(res?.product?.oldPrice || 0),
                 category: res?.product?.category,
                 catName: res?.product?.catName,
@@ -220,10 +250,10 @@ const EditProduct = () => {
                 bannerTitleName: res?.product?.bannerTitleName,
                 bannerimages: res?.product?.bannerimages,
                 variants: res?.product?.variants,
-                isDisplayOnHomeBanner:res?.product?.isDisplayOnHomeBanner,
-                shipment_days : res?.product?.shipment_days,
-                product_pincode : res?.product?.product_pincode,
-                video_url : res?.product?.video_url,
+                isDisplayOnHomeBanner: res?.product?.isDisplayOnHomeBanner,
+                shipment_days: res?.product?.shipment_days,
+                product_pincode: res?.product?.product_pincode,
+                video_url: res?.product?.video_url,
             })
             setVideoPreview(res?.product?.video_url)
             setVariantInput(res?.product?.variants)
@@ -376,7 +406,7 @@ const EditProduct = () => {
 
 
 
-    const handleChangeSwitch=(event)=>{
+    const handleChangeSwitch = (event) => {
         setCheckedSwitch(event.target.checked);
         formFields.isDisplayOnHomeBanner = event.target.checked;
     }
@@ -476,292 +506,318 @@ const EditProduct = () => {
     }
 
     return (
-<section className="p-5 bg-gray-50">
-  <form className="form p-1 md:p-8" onSubmit={handleSubmitg}>
-    <div className="max-h-[72vh] overflow-y-auto pr-4">
+        <section className="bg-white">
+            <form className="py-1 p-1 md:p-6 md:py-1" onSubmit={handleSubmitg}>
+                <div className="scroll max-h-[74vh] overflow-y-scroll pr-2 -mr-2">
 
-      {/* Product Name */}
-      <div className="grid grid-cols-1 mb-4">
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Name</h3>
-          <input
-            type="text"
-            name="name"
-            value={formFields.name}
-            onChange={onChangeInput}
-            className="w-full h-[40px] border rounded-sm p-3 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Product Description */}
-      <div className="grid grid-cols-1 mb-6">
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Description</h3>
-          <textarea
-            name="description"
-            value={formFields.description}
-            onChange={onChangeInput}
-            className="w-full h-[140px] border rounded-sm p-3 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Product Meta Info */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-
-        {/* Category */}
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Category</h3>
-          <Select size="small" className="w-full" value={productCat} onChange={handleChangeProductCat}>
-            {context?.catData?.map(cat => (
-              <MenuItem key={cat._id} value={cat._id} onClick={() => selectCatByName(cat.name)}>
-                {cat.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </div>
-
-        {/* Sub Category */}
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Sub Category</h3>
-          <Select size="small" className="w-full" value={productSubCat} onChange={handleChangeProductSubCat}>
-            {context?.catData?.flatMap(cat =>
-              cat.children?.map(sub => (
-                <MenuItem key={sub._id} value={sub._id} onClick={() => selectSubCatByName(sub.name)}>
-                  {sub.name}
-                </MenuItem>
-              ))
-            )}
-          </Select>
-        </div>
-
-        {/* Third Level */}
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Third Level Category</h3>
-          <Select size="small" className="w-full" value={productThirdLavelCat} onChange={handleChangeProductThirdLavelCat}>
-            {context?.catData?.flatMap(cat =>
-              cat.children?.flatMap(sub =>
-                sub.children?.map(third => (
-                  <MenuItem
-                    key={third._id}
-                    value={third._id}
-                    onClick={() => selectSubCatByThirdLavel(third.name)}
-                  >
-                    {third.name}
-                  </MenuItem>
-                ))
-              )
-            )}
-          </Select>
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product MRP</h3>
-          <input type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} className="input" />
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Price</h3>
-          <input type="number" name="price" value={formFields.price} onChange={onChangeInput} className="input" />
-        </div>
-
-        {context.userData.role=="ADMIN"&&<div>
-          <h3 className="text-[14px] font-[500] mb-1">Is Featured?</h3>
-          <Select size="small" className="w-full" value={productFeatured} onChange={handleChangeProductFeatured}>
-            <MenuItem  value={true}>True</MenuItem>
-            <MenuItem value={false}>False</MenuItem>
-          </Select>
-        </div>}
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Stock</h3>
-          <input type="number" name="countInStock" value={formFields.countInStock} onChange={onChangeInput} className="input" />
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Model</h3>
-          <input type="text" name="brand" value={formFields.brand} onChange={onChangeInput} className="input" />
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Discount</h3>
-          <input type="number" disabled value={formFields.discount} className="input bg-gray-100" />
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Expected Shipment Days</h3>
-          <input type="number" name="shipmentDays" value={formFields.shipment_days} onChange={onChangeInput} className="input" />
-        </div>
-
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product PIN Code</h3>
-          <input type="number" name="product_pincode" value={formFields.product_pincode} onChange={onChangeInput} className="input" />
-        </div>
-      </div>
-
-      {/* Rating */}
-      {context.userData.role==="ADMIN"&&<div className="grid grid-cols-1 md:grid-cols-4 mb-6">
-        <div>
-          <h3 className="text-[14px] font-[500] mb-1">Product Rating</h3>
-          <Rating value={formFields.rating} onChange={onChangeRating} />
-        </div>
-      </div>}
-
-      {/* Variants */}
-      <h3 className="text-[18px] font-[700] mb-3">Product Variants</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        {["color", "ram", "weight", "size", "length","width"].map(type => (
-          <div key={type}>
-            <h3 className="text-[14px] font-[500] mb-1 uppercase">{type}</h3>
-
-            <Select size="small" className="w-full" value={variantInput?.[type] || ""} onChange={e =>
-              setVariantInput(prev => ({ ...prev, [type]: e.target.value }))
-            }>
-              {(variantOptions?.[type] || []).map(opt => (
-                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-              ))}
-            </Select>
-
-            <div className="flex gap-2 mt-2">
-              <input
-                className="flex-1 h-[36px] border rounded px-2 text-sm"
-                value={variantInput?.[type] || ""}
-                onChange={e => setVariantInput(prev => ({ ...prev, [type]: e.target.value }))}
-              />
-              <Button size="small" variant="contained" onClick={() => addVariant(type)}>Add</Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-2">
-              {(formFields?.variants?.[type] || []).map(item => (
-                <span key={item} className="bg-gray-200 px-2 py-1 rounded text-sm flex items-center gap-1">
-                  {item}
-                  <IoMdClose className="cursor-pointer" onClick={() => removeVariant(type, item)} />
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-                    <div className='col w-full p-5 px-0'>
-                        <h3 className="font-[700] text-[18px] mb-3">Media & Images</h3>
-
-                        <div className="grid gap-2 grid-row">
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-                                {
-                                    previews?.length !== 0 && previews?.map((image, index) => {
-                                        return (
-                                            <div className="uploadBoxWrapper relative" key={index}>
-
-                                                <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                                <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                    <img src={image} className='w-100' />
-                                                </div>
-                                            </div>
-                                        )
-                                    })
-                                }
-
-
-                                <UploadBox multiple={true} name="images" url="/api/product/uploadImages" setPreviewsFun={setPreviewsFun} />
+                    <SectionCard title="Basic details" subtitle="Name and describe the product the way customers will see it.">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <h3 className={labelCls}>Product Name</h3>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formFields.name}
+                                    onChange={onChangeInput}
+                                    className={inputCls}
+                                    placeholder="e.g. Classic Cotton T-Shirt"
+                                />
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+                            <div>
+                                <h3 className={labelCls}>Product Description</h3>
+                                <textarea
+                                    name="description"
+                                    value={formFields.description}
+                                    onChange={onChangeInput}
+                                    className={`${inputCls} h-[130px] py-3 resize-none`}
+                                    placeholder="What makes this product worth buying?"
+                                />
+                            </div>
+                        </div>
+                    </SectionCard>
 
-                                {/* Video Preview */}
-                                {videoPreview && (
-                                    <div className="relative">
-                                        <span
-                                            className="absolute w-[20px] h-[20px] rounded-full bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer"
-                                            onClick={() => {
-                                                setVideoPreview(null);
-                                                setVideoFile(null);
-                                            }}
-                                        >
-                                            <IoMdClose className="text-white text-[17px]" />
-                                        </span>
+                    <SectionCard title="Category & pricing" subtitle="Where this product lives in the catalog, and what it costs.">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                                        <div className="h-[150px] bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
-                                            <video
-                                                src={videoPreview}
-                                                controls
-                                                className="h-full w-full object-cover"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
+                            <div>
+                                <h3 className={labelCls}>Product Category</h3>
+                                <Select size="small" sx={selectSx} value={productCat} onChange={handleChangeProductCat}>
+                                    {context?.catData?.map(cat => (
+                                        <MenuItem key={cat._id} value={cat._id} onClick={() => selectCatByName(cat.name)}>
+                                            {cat.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </div>
 
-                                {/* Upload Box */}
-                                {!videoPreview && (
-                                    <label className="h-[150px] border border-dashed rounded-md bg-gray-100 hover:bg-gray-200 flex flex-col items-center justify-center cursor-pointer">
-                                        <span className="text-sm text-gray-600">Upload Video</span>
+                            <div>
+                                <h3 className={labelCls}>Product Sub Category</h3>
+                                <Select size="small" sx={selectSx} value={productSubCat} onChange={handleChangeProductSubCat}>
+                                    {context?.catData?.flatMap(cat =>
+                                        cat.children?.map(sub => (
+                                            <MenuItem key={sub._id} value={sub._id} onClick={() => selectSubCatByName(sub.name)}>
+                                                {sub.name}
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </Select>
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Third Level Category</h3>
+                                <Select size="small" sx={selectSx} value={productThirdLavelCat} onChange={handleChangeProductThirdLavelCat}>
+                                    {context?.catData?.flatMap(cat =>
+                                        cat.children?.flatMap(sub =>
+                                            sub.children?.map(third => (
+                                                <MenuItem
+                                                    key={third._id}
+                                                    value={third._id}
+                                                    onClick={() => selectSubCatByThirdLavel(third.name)}
+                                                >
+                                                    {third.name}
+                                                </MenuItem>
+                                            ))
+                                        )
+                                    )}
+                                </Select>
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product MRP</h3>
+                                <input type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} className={inputCls} placeholder="0.00" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Price</h3>
+                                <input type="number" name="price" value={formFields.price} onChange={onChangeInput} className={inputCls} placeholder="0.00" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Discount</h3>
+                                <input type="number" disabled value={formFields.discount} className={`${inputCls} bg-gray-50 text-gray-500`} />
+                            </div>
+
+                            {context.userData.role === "ADMIN" && (
+                                <div>
+                                    <h3 className={labelCls}>Is Featured?</h3>
+                                    <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured}>
+                                        <MenuItem value={true}>True</MenuItem>
+                                        <MenuItem value={false}>False</MenuItem>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div>
+                                <h3 className={labelCls}>Stock</h3>
+                                <input type="number" name="countInStock" value={formFields.countInStock} onChange={onChangeInput} className={inputCls} placeholder="0" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product Model</h3>
+                                <input type="text" name="brand" value={formFields.brand} onChange={onChangeInput} className={inputCls} placeholder="Model / brand" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Expected Shipment Days</h3>
+                                <input type="number" name="shipmentDays" value={formFields.shipment_days} onChange={onChangeInput} className={inputCls} placeholder="e.g. 3" />
+                            </div>
+
+                            <div>
+                                <h3 className={labelCls}>Product PIN Code</h3>
+                                <input type="number" name="product_pincode" value={formFields.product_pincode} onChange={onChangeInput} className={inputCls} placeholder="e.g. 682001" />
+                            </div>
+
+                            {context.userData.role === "ADMIN" && (
+                                <div>
+                                    <h3 className={labelCls}>Product Rating</h3>
+                                    <Rating value={formFields.rating} onChange={onChangeRating} />
+                                </div>
+                            )}
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard title="Product variants" subtitle="Pick from existing options or add your own for each attribute.">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {["color", "ram", "weight", "size", "length", "width"].map(type => (
+                                <div key={type} className="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
+                                    <h3 className={`${labelCls} capitalize`}>{type}</h3>
+
+                                    <Select
+                                        size="small"
+                                        sx={{ ...selectSx, mb: 1 }}
+                                        value={variantInput?.[type] || ""}
+                                        onChange={e =>
+                                            setVariantInput(prev => ({ ...prev, [type]: e.target.value }))
+                                        }
+                                    >
+                                        {(variantOptions?.[type] || []).map(opt => (
+                                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                        ))}
+                                    </Select>
+
+                                    <div className="flex gap-2 mt-1">
                                         <input
-                                            type="file"
-                                            accept="video/*"
-                                            hidden
-                                            onChange={handleVideoSelect}
+                                            className={`${inputCls} h-[36px]`}
+                                            placeholder={`Add custom ${type}`}
+                                            value={variantInput?.[type] || ""}
+                                            onChange={e => setVariantInput(prev => ({ ...prev, [type]: e.target.value }))}
                                         />
-                                    </label>
-                                )}
-                            </div>
+                                        <Button variant="contained" size="small" disableElevation onClick={() => addVariant(type)}>
+                                            Add
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {(formFields?.variants?.[type] || []).map(item => (
+                                            <span
+                                                key={item}
+                                                className="bg-white border border-gray-200 px-2 py-1 rounded-md text-[12.5px] flex items-center gap-1 text-gray-700"
+                                            >
+                                                {item}
+                                                <IoMdClose
+                                                    className="cursor-pointer text-gray-400 hover:text-red-500"
+                                                    onClick={() => removeVariant(type, item)}
+                                                />
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+                    </SectionCard>
 
-
-                    </div>
-
-                    <div className='col w-full p-5 px-0'>
-
-                        <div className='bg-gray-100 p-4 w-full'>
-                            <div className="flex items-center gap-8">
-                                <h3 className="font-[700] text-[18px] mb-3">Banner Images</h3>
-                                <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-
-                                {
-                                    bannerPreviews?.length !== 0 && bannerPreviews?.map((image, index) => {
-                                        return (
-                                            <div className="uploadBoxWrapper relative" key={index}>
-
-                                                <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeBannerImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                                <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                    <img src={image} className='w-100' />
-                                                </div>
+                    <SectionCard title="Media & images" subtitle="Upload clear, well-lit photos and an optional product video.">
+                        <div className="grid gap-5">
+                            <div>
+                                <h4 className="text-[12.5px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">Images</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {previews?.length !== 0 && previews?.map((image, index) => (
+                                        <div className="relative" key={index}>
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => removeImg(image, index)}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
+                                            <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                                <img src={image} className="w-full h-full object-cover" />
                                             </div>
-                                        )
-                                    })
-                                }
+                                        </div>
+                                    ))}
 
-
-                                <UploadBox multiple={true} name="bannerimages" url="/api/product/uploadBannerImages" setPreviewsFun={setBannerImagesFun} />
+                                    <UploadBox multiple={true} name="images" url="/api/product/uploadImages" setPreviewsFun={setPreviewsFun} />
+                                </div>
                             </div>
 
+                            <div>
+                                <h4 className="text-[12.5px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">Video</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {videoPreview && (
+                                        <div className="relative">
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => {
+                                                    setVideoPreview(null);
+                                                    setVideoFile(null);
+                                                }}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
 
-                            <br />
+                                            <div className="h-[120px] bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                                                <video
+                                                    src={videoPreview}
+                                                    controls
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
 
-                            <h3 className="font-[700] text-[18px] mb-3">Banner Title</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} />
+                                    {!videoPreview && (
+                                        <label className="h-[120px] border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                                            <FaCloudUploadAlt className="text-gray-400 text-[20px] mb-1" />
+                                            <span className="text-[12.5px] text-gray-500">Upload video</span>
+                                            <input
+                                                type="file"
+                                                accept="video/*"
+                                                hidden
+                                                onChange={handleVideoSelect}
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </SectionCard>
+
+                    <SectionCard>
+                        <div className="flex items-center gap-4 mb-4">
+                            <h3 className="font-bold text-[16px] text-gray-900">Banner images</h3>
+                            <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
+                            <span className="text-[12.5px] text-gray-500">{checkedSwitch ? "Shown on home banner" : "Not shown on home banner"}</span>
                         </div>
 
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-5">
+                            {bannerPreviews?.length !== 0 && bannerPreviews?.map((image, index) => (
+                                <div className="relative" key={index}>
+                                    <span
+                                        className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                        onClick={() => removeBannerImg(image, index)}
+                                    >
+                                        <IoMdClose className="text-white text-[14px]" />
+                                    </span>
+                                    <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                        <img src={image} className="w-full h-full object-cover" />
+                                    </div>
+                                </div>
+                            ))}
 
+                            {checkedSwitch && (
+                                <UploadBox multiple={true} name="bannerimages" url="/api/product/uploadBannerImages" setPreviewsFun={setBannerImagesFun} />
+                            )}
+                        </div>
 
-                    </div>
-    </div>
+                        <h3 className={labelCls}>Banner Title</h3>
+                        <input
+                            type="text"
+                            className={inputCls}
+                            name="bannerTitleName"
+                            value={formFields.bannerTitleName}
+                            onChange={onChangeInput}
+                            placeholder="Optional headline for the home banner"
+                        />
+                    </SectionCard>
 
-    <Button type="submit" className="btn-blue w-full mt-4 flex justify-center gap-2">
-      {isLoading ? <CircularProgress size={20} /> : <>
-        <FaCloudUploadAlt className="text-[22px]" />
-        Publish and View
-      </>}
-    </Button>
-  </form>
-</section>
+                </div>
 
+                <div className="border-t border-gray-200 pt-5 mt-2">
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disableElevation
+                        className="w-full flex gap-2"
+                        sx={{
+                            height: '46px',
+                            textTransform: 'none',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            backgroundColor: '#4f46e5',
+                            '&:hover': { backgroundColor: '#4338ca' },
+                        }}
+                    >
+                        {isLoading ? <CircularProgress size={22} color="inherit" />
+                            : (
+                                <>
+                                    <FaCloudUploadAlt className="text-[20px] text-white" />
+                                    Publish and View
+                                </>
+                            )}
+                    </Button>
+                </div>
+            </form>
+        </section>
     )
 }
 

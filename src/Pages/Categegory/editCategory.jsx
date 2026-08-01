@@ -90,7 +90,7 @@ const EditCategory = () => {
             setIsLoading(false);
             return false
         }
-
+        formFields.name = formFields.name?.toUpperCase()
         console.log(formFields)
 
         editData(`/api/category/${context?.isOpenFullScreenPanel?.id}`, formFields).then((res) => {

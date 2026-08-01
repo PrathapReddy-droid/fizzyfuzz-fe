@@ -17,6 +17,8 @@ import Progress from "../../Components/ProgressBar";
 import { AiOutlineEdit } from "react-icons/ai";
 import { FaRegEye } from "react-icons/fa6";
 import { GoTrash } from "react-icons/go";
+import { HiOutlineCheck, HiOutlineX } from "react-icons/hi";
+import { HiOutlineClock, HiOutlineCheckCircle } from "react-icons/hi2";
 import SearchBox from '../../Components/SearchBox';
 import { MyContext } from '../../App';
 import { fetchDataFromApi, deleteData, deleteMultipleData, postData } from '../../utils/api';
@@ -56,6 +58,23 @@ const columns = [
         minWidth: 120,
     },
 ];
+
+// Shared MUI overrides so the Select controls match the rest of the
+// refreshed palette instead of MUI's stock outline styling.
+const selectSx = {
+    backgroundColor: "#ffffff",
+    borderRadius: "10px",
+    "& .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#E4E7F2",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#C7CCE8",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+        borderColor: "#6C63FF",
+        borderWidth: "1.5px",
+    },
+};
 
 
 
@@ -356,12 +375,28 @@ export const PendingProducts = () => {
 
     return (
         <>
+            {/* Soft ambient backdrop: two low-opacity radial blooms over a
+               near-white base so the panel feels calm rather than stark
+               white, without competing with the data in the table. */}
+            <div
+                className="min-h-screen -m-6 p-6"
+                style={{
+                    
+                }}
+            >
 
             <div className="flex items-center justify-between px-2 py-0 mt-3">
-                <h2 className="text-[18px] font-[600]">
-                    Pending Products
-                    <span className="font-[400] text-[14px]"></span>
-                </h2>
+                <div>
+                    <h2 className="text-[20px] font-[700] text-white tracking-tight flex items-center gap-3">
+                        Pending Products
+                        <span className="text-[12px] font-[600] text-[#6C63FF] bg-[#6C63FF]/10 px-2.5 py-1 rounded-full">
+                            {productData?.products?.length ?? 0} awaiting review
+                        </span>
+                    </h2>
+                    <p className="text-[13px] text-[#8A8AA3] mt-1">
+                        Review new listings before they go live in the storefront.
+                    </p>
+                </div>
 
                 {/* <div className="col w-[75%] ml-auto flex items-center justify-end gap-3">
                     {
@@ -381,19 +416,22 @@ export const PendingProducts = () => {
             </div>
 
 
-            <div className="card my-4 pt-5 shadow-md sm:rounded-lg bg-white">
+            <div
+                className="my-5 pt-6 rounded-2xl bg-white backdrop-blur-sm border border-[#ECECF5]"
+                style={{ boxShadow: "0 1px 2px rgba(30,27,58,0.04), 0 12px 32px -16px rgba(30,27,58,0.12)" }}
+            >
 
-                <div className="grid grid-cols-1 sm:grid-cols-2  md:grid-cols-2 lg:grid-cols-4 w-full px-5 justify-beetween gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2  md:grid-cols-2 lg:grid-cols-4 w-full px-6 justify-beetween gap-4">
                     <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Category By</h4>
+                        <h4 className="font-[600] text-[12px] uppercase tracking-wide text-[#8A8AA3] mb-2">Category By</h4>
                         {
                             context?.catData?.length !== 0 &&
                             <Select
-                                style={{ zoom: '80%' }}
                                 labelId="demo-simple-select-label"
                                 id="productCatDrop"
                                 size="small"
                                 className='w-full'
+                                sx={selectSx}
                                 value={productCat}
                                 label="Category"
                                 onChange={handleChangeProductCat}
@@ -413,15 +451,15 @@ export const PendingProducts = () => {
 
 
                     <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Sub Category By</h4>
+                        <h4 className="font-[600] text-[12px] uppercase tracking-wide text-[#8A8AA3] mb-2">Sub Category By</h4>
                         {
                             context?.catData?.length !== 0 &&
                             <Select
-                                style={{ zoom: '80%' }}
                                 labelId="demo-simple-select-label"
                                 id="productCatDrop"
                                 size="small"
                                 className='w-full'
+                                sx={selectSx}
                                 value={productSubCat}
                                 label="Sub Category"
                                 onChange={handleChangeProductSubCat}
@@ -447,15 +485,15 @@ export const PendingProducts = () => {
 
 
                     <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Third Level Sub Category By</h4>
+                        <h4 className="font-[600] text-[12px] uppercase tracking-wide text-[#8A8AA3] mb-2">Third Level Sub Category By</h4>
                         {
                             context?.catData?.length !== 0 &&
                             <Select
-                                style={{ zoom: '80%' }}
                                 labelId="demo-simple-select-label"
                                 id="productCatDrop"
                                 size="small"
                                 className='w-full'
+                                sx={selectSx}
                                 value={productThirdLavelCat}
                                 label="Sub Category"
                                 onChange={handleChangeProductThirdLavelCat}
@@ -496,15 +534,24 @@ export const PendingProducts = () => {
 
                 </div>
 
-                <br />
-                <TableContainer sx={{ maxHeight: 440 }}>
+                <div className="h-6" />
+                <TableContainer sx={{ maxHeight: 440, px: 1 }}>
                     <Table stickyHeader aria-label="sticky table">
                         <TableHead>
                             <TableRow>
-                                <TableCell>
+                                <TableCell
+                                    sx={{
+                                        backgroundColor: "#F7F7FC",
+                                        borderBottom: "1px solid #ECECF5",
+                                    }}
+                                >
                                     <Checkbox {...label} size="small"
                                         onChange={handleSelectAll}
                                         checked={productData?.products?.length > 0 ? productData?.products?.every((item) => item.checked) : false}
+                                        sx={{
+                                            color: "#C7CCE8",
+                                            "&.Mui-checked": { color: "#6C63FF" },
+                                        }}
                                     />
                                 </TableCell>
                                 {columns.map((column) => (
@@ -512,6 +559,14 @@ export const PendingProducts = () => {
                                         key={column.id}
                                         align={column.align}
                                         style={{ minWidth: column.minWidth }}
+                                        sx={{
+                                            backgroundColor: "#F7F7FC",
+                                            color: "#6B6B85",
+                                            fontSize: "11.5px",
+                                            fontWeight: 700,
+                                            letterSpacing: "0.06em",
+                                            borderBottom: "1px solid #ECECF5",
+                                        }}
                                     >
                                         {column.label}
                                     </TableCell>
@@ -523,53 +578,75 @@ export const PendingProducts = () => {
                             {
                                 isLoading === false ? productData?.products?.length !== 0 && productData?.products?.map((product, index) => {
                                     return (
-                                        <TableRow key={index} className={product.checked === true ? '!bg-[#1976d21f]' : ''}>
+                                        <TableRow
+                                            key={index}
+                                            className="transition-colors duration-150 hover:bg-[#F7F7FC]"
+                                            sx={{
+                                                backgroundColor: product.checked === true ? "rgba(108,99,255,0.06)" : "transparent",
+                                                "& td": { borderBottom: "1px solid #F1F1F7" },
+                                            }}
+                                        >
                                             <TableCell style={{ minWidth: columns.minWidth }}>
                                                 <Checkbox {...label} size="small" checked={product.checked === true ? true : false}
                                                     onChange={(e) => handleCheckboxChange(e, product._id, index)}
+                                                    sx={{
+                                                        color: "#C7CCE8",
+                                                        "&.Mui-checked": { color: "#6C63FF" },
+                                                    }}
                                                 />
                                             </TableCell>
                                             <TableCell style={{ minWidth: columns.minWidth }}>
                                                 <div className="flex items-center gap-4 w-[300px]" title={product?.name}>
-                                                    <div className="img w-[65px] h-[65px] rounded-md overflow-hidden group cursor-pointer" onClick={() => setOpen(true)}>
+                                                    <div className="img w-[65px] h-[65px] rounded-xl overflow-hidden group cursor-pointer ring-1 ring-[#ECECF5] shadow-sm" onClick={() => setOpen(true)}>
                                                         <LazyLoadImage
                                                             alt={"image"}
                                                             effect="blur"
                                                             src={product?.images[0]}
-                                                            className="w-full group-hover:scale-105 transition-all"
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                         />
                                                     </div>
                                                     <div className="info w-[75%]">
-                                                        <h3 className="font-[600] text-[12px] leading-4 hover:text-primary">
+                                                        <h3 className="font-[600] text-[12.5px] leading-4 text-[#1E1B3A] hover:text-[#6C63FF] transition-colors">
                                                             <Link to={`/product/${product?._id}`}>
                                                                 {product?.name?.substr(0, 50) + '...'}
                                                             </Link>
                                                         </h3>
-                                                        <span className="text-[12px]">{product?.brand}</span>
+                                                        <span className="text-[12px] text-[#8A8AA3]">{product?.brand}</span>
                                                     </div>
                                                 </div>
                                             </TableCell>
 
                                             <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <p className={`rounded ${product?.isApproved?"bg-green-600":"bg-orange-600"}  text-white text-center p-1`}>
-                                                    {product?.isApproved?"Approved":"Pending"}
+                                                <p
+                                                    className={`inline-flex items-center gap-1.5 rounded-full text-[11.5px] font-[600] px-3 py-1 ${
+                                                        product?.isApproved
+                                                            ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200"
+                                                            : "bg-amber-50 text-amber-600 ring-1 ring-amber-200"
+                                                    }`}
+                                                >
+                                                    {product?.isApproved ? (
+                                                        <HiOutlineCheckCircle className="text-[14px]" />
+                                                    ) : (
+                                                        <HiOutlineClock className="text-[14px]" />
+                                                    )}
+                                                    {product?.isApproved ? "Approved" : "Pending"}
                                                 </p>
                                             </TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
+                                            <TableCell style={{ minWidth: columns.minWidth }} className="!text-[13px] !text-[#4B4B63]">
                                                 {product?.catName}
                                             </TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
+                                            <TableCell style={{ minWidth: columns.minWidth }} className="!text-[13px] !text-[#4B4B63]">
                                                 {product?.subCat}
                                             </TableCell>
 
                                             <TableCell style={{ minWidth: columns.minWidth }}>
                                                 <div className="flex gap-1 flex-col">
-                                                    <span className="oldPrice line-through leading-3 text-gray-500 text-[14px] font-[500]">
+                                                    <span className="oldPrice line-through leading-3 text-[#B3B3C6] text-[13px] font-[500]">
                                                         {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </span>
-                                                    <span className="price text-primary text-[14px]  font-[600]">
+                                                    <span className="price text-[#1E1B3A] text-[14px] font-[700]">
                                                         {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </span>
                                                 </div>
@@ -589,21 +666,41 @@ export const PendingProducts = () => {
                                             <TableCell align="center">
                                                 <div className="flex gap-2 justify-center">
                                                     <Button
-                                                    variant="contained"
-                                                    color="success"
-                                                    size="small"
-                                                    onClick={() => handleAction('APPROVED',product)}
+                                                        variant="contained"
+                                                        size="small"
+                                                        disableElevation
+                                                        onClick={() => handleAction('APPROVED', product)}
+                                                        startIcon={<HiOutlineCheck />}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            borderRadius: "999px",
+                                                            fontWeight: 600,
+                                                            fontSize: "12.5px",
+                                                            backgroundColor: "#1FAE6D",
+                                                            boxShadow: "0 1px 2px rgba(31,174,109,0.25)",
+                                                            "&:hover": { backgroundColor: "#189259" },
+                                                        }}
                                                     >
-                                                    Approve
+                                                        Approve
                                                     </Button>
 
                                                     <Button
-                                                    variant="contained"
-                                                    color="error"
-                                                    size="small"
-                                                    onClick={() => handleAction('REJECTED',product)}
+                                                        variant="outlined"
+                                                        size="small"
+                                                        onClick={() => handleAction('REJECTED', product)}
+                                                        startIcon={<HiOutlineX />}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            borderRadius: "999px",
+                                                            fontWeight: 600,
+                                                            fontSize: "12.5px",
+                                                            color: "#E1493F",
+                                                            borderColor: "#F5D3D0",
+                                                            backgroundColor: "#FEF6F5",
+                                                            "&:hover": { backgroundColor: "#FCE9E7", borderColor: "#E1493F" },
+                                                        }}
                                                     >
-                                                    Reject
+                                                        Reject
                                                     </Button>
                                                 </div>
                                                 </TableCell>
@@ -616,14 +713,30 @@ export const PendingProducts = () => {
 
                                     <>
                                         <TableRow>
-                                            <TableCell colspan={8}>
-                                                <div className="flex items-center justify-center w-full min-h-[400px]">
-                                                    <CircularProgress color="inherit" />
+                                            <TableCell colSpan={8} sx={{ border: "none" }}>
+                                                <div className="flex flex-col items-center justify-center gap-3 w-full min-h-[400px]">
+                                                    <CircularProgress size={30} sx={{ color: "#6C63FF" }} />
+                                                    <span className="text-[13px] text-[#8A8AA3]">Loading pending products…</span>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
 
                                     </>
+                            }
+
+                            {
+                                isLoading === false && productData?.products?.length === 0 &&
+                                <TableRow>
+                                    <TableCell colSpan={8} sx={{ border: "none" }}>
+                                        <div className="flex flex-col items-center justify-center gap-2 w-full min-h-[300px]">
+                                            <div className="w-12 h-12 rounded-full bg-[#6C63FF]/10 flex items-center justify-center">
+                                                <HiOutlineCheckCircle className="text-[24px] text-[#6C63FF]" />
+                                            </div>
+                                            <p className="text-[14px] font-[600] text-[#1E1B3A]">All caught up</p>
+                                            <p className="text-[12.5px] text-[#8A8AA3]">There are no products waiting for review right now.</p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
                             }
 
 
@@ -639,6 +752,10 @@ export const PendingProducts = () => {
                     page={page}
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
+                    sx={{
+                        borderTop: "1px solid #ECECF5",
+                        color: "#4B4B63",
+                    }}
                 />
             </div>
 
@@ -649,7 +766,7 @@ export const PendingProducts = () => {
                 slides={photos}
             />
 
-
+            </div>
         </>
     )
 }

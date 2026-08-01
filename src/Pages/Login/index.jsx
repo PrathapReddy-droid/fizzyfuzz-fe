@@ -35,7 +35,10 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordShow, setisPasswordShow] = useState(false);
   const [formFields, setFormsFields] = useState({ email: '', password: '' });
-
+  const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
+  const [sessionToken, setSessionToken] = useState('');
+  const [maskedMobile, setMaskedMobile] = useState('');
+  const [otp, setOtp] = useState('');
   const context = useContext(MyContext);
   const history = useNavigate();
 
@@ -73,28 +76,78 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    if (!formFields.email)    { context.alertBox("error", "Please enter email");    setIsLoading(false); return; }
+    if (!formFields.email) { context.alertBox("error", "Please enter email"); setIsLoading(false); return; }
     if (!formFields.password) { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
 
     const payload = { ...formFields, role: import.meta.env.VITE_FRONTEND || "SELLER" };
 
     try {
       const res = await postData("/api/user/login", payload);
-      if (res?.error !== true) {
-        setIsLoading(false);
+      setIsLoading(false);
+
+      if (res?.error !== true && res?.otpRequired) {
+        setSessionToken(res?.data?.sessionToken);
+        setMaskedMobile(res?.data?.mobile);
+        setStep('otp');
         context.alertBox("success", res?.message);
-        setFormsFields({ email: "", password: "" });
+      } else if (res?.error !== true) {
+        // fallback if backend ever skips OTP
+        context.alertBox("success", res?.message);
         localStorage.setItem("accessToken", res?.data?.accesstoken);
         localStorage.setItem("refreshToken", res?.data?.refreshToken);
         context.setIsLogin(true);
         history("/");
       } else {
         context.alertBox("error", res?.message);
-        setIsLoading(false);
       }
     } catch (error) {
       context.alertBox("error", error?.response?.data?.message || "Please try again later");
       setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.length !== 6) {
+      context.alertBox("error", "Enter the 6-digit OTP");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await postData("/api/user/verify-login-otp", { sessionToken, otp });
+      setIsLoading(false);
+      if (res?.error !== true) {
+        context.alertBox("success", res?.message);
+        localStorage.setItem("accessToken", res?.data?.accesstoken);
+        localStorage.setItem("refreshToken", res?.data?.refreshToken);
+        context.setIsLogin(true);
+        history("/");
+      } else {
+        context.alertBox("error", res?.message);
+        if (res?.sessionExpired) {
+          setStep('credentials');
+        }
+      }
+    } catch (error) {
+      setIsLoading(false);
+      context.alertBox("error", error?.response?.data?.message || "Please try again later");
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      const res = await postData("/api/user/resend-login-otp", { sessionToken });
+      if (res?.error !== true) {
+        setSessionToken(res?.data?.sessionToken); // <-- replace with the fresh one
+        context.alertBox("success", res?.message);
+      } else {
+        context.alertBox("error", res?.message);
+        if (res?.message?.toLowerCase().includes("login again")) {
+          setStep('credentials'); // session too old — force re-login
+        }
+      }
+    } catch (error) {
+      context.alertBox("error", error?.response?.data?.message || "Could not resend OTP");
     }
   };
 
@@ -597,13 +650,16 @@ const Login = () => {
             <div className="sl-form-side">
               <div className="sl-form-head">
                 <p className="sl-form-eyebrow">Seller portal</p>
-                <h1 className="sl-form-title">Sign in to <em>your store</em></h1>
+                <h1 className="sl-form-title">
+                  {step === 'credentials' ? <>Sign in to <em>your store</em></> : <>Verify <em>your identity</em></>}
+                </h1>
                 <p className="sl-form-sub">Access your seller dashboard &amp; manage products</p>
               </div>
 
               <div className="sl-divider" />
 
-              <form onSubmit={handleSubmit}>
+              {step === 'credentials' ? (
+                <form onSubmit={handleSubmit}>
                 <div className="sl-field">
                   <label className="sl-label">Seller Email</label>
                   <input
@@ -675,6 +731,44 @@ const Login = () => {
                   <Link to="/sign-up" className="sl-signup-link">Register your store →</Link>
                 </p>
               </form>
+              ) : (
+                <form onSubmit={handleOtpSubmit}>
+                  <div className="sl-field">
+                    <label className="sl-label">Enter OTP</label>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+                      We sent a 6-digit code to <strong style={{ color: '#fcd34d' }}>{maskedMobile}</strong>
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      className="sl-input"
+                      value={otp}
+                      disabled={isLoading}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••••"
+                      style={{ letterSpacing: 6, textAlign: 'center', fontSize: 18 }}
+                    />
+                  </div>
+
+                  <button type="submit" className="sl-submit" disabled={otp.length !== 6 || isLoading}>
+                    {isLoading ? <CircularProgress color="inherit" size={22} /> : <><LogIn size={16} /> Verify & Continue</>}
+                  </button>
+
+                  <p className="sl-signup-row">
+                    Didn't get the code?
+                    <button type="button" onClick={handleResendOtp} className="sl-forgot" style={{ marginLeft: 6 }}>
+                      Resend OTP
+                    </button>
+                  </p>
+
+                  <p className="sl-signup-row" style={{ marginTop: 8 }}>
+                    <button type="button" className="sl-forgot" onClick={() => setStep('credentials')}>
+                      ← Back to login
+                    </button>
+                  </p>
+                </form>
+              )}
             </div>
 
           </div>

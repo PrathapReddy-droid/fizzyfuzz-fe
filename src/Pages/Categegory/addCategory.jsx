@@ -82,7 +82,7 @@ const AddCategory = () => {
             setIsLoading(false);
             return false
         }
-
+        formFields.name = formFields.name?.toUpperCase()
         postData("/api/category/create", formFields).then((res) => {
        
             setTimeout(() => {
