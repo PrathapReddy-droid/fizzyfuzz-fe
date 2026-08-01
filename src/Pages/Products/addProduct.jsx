@@ -7,13 +7,14 @@ import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/blur.css';
 import { IoMdClose } from "react-icons/io";
 import { Button } from '@mui/material';
-import { FaCloudUploadAlt } from "react-icons/fa";
+import { FaCloudUploadAlt, FaCalculator } from "react-icons/fa";
 import { MyContext } from '../../App';
 import { deleteImages, editData, fetchDataFromApi, postData } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
-
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
 // Shared style tokens so every field looks the same
@@ -104,6 +105,20 @@ const AddProduct = () => {
     const [videoPreviews, setVideoPreviews] = useState("");
 
     const [checkedSwitch, setCheckedSwitch] = useState(false);
+
+    // ── Price Calculator state ──
+    // costPrice / marginPercent are what the seller types in.
+    // calcCategory is chosen independently from the main Product Category —
+    // searched from whatever categories exist in the pricings collection.
+    // calcRates comes from the backend (commission / shipping / gst / payment gateway %)
+    // for the selected calculator category.
+    const [calcInputs, setCalcInputs] = useState({ costPrice: '', marginPercent: '' });
+    const [calcCategory, setCalcCategory] = useState(null); // { _id, categoryName } | null
+    const [pricingCategories, setPricingCategories] = useState([]);
+    const [pricingCategoriesLoading, setPricingCategoriesLoading] = useState(false);
+    const [calcRates, setCalcRates] = useState(null);
+    const [calcRatesLoading, setCalcRatesLoading] = useState(false);
+    const [calcResult, setCalcResult] = useState(null);
 
     // Product is treated as "food" whenever the selected category name mentions it —
     // this is what gates the FSSAI declaration block below.
@@ -280,6 +295,117 @@ const AddProduct = () => {
             }
         });
     }, []);
+
+    // Fetch the list of categories that actually have a pricing rule configured,
+    // for the calculator's own category search — independent of the main
+    // Product Category dropdown above.
+    useEffect(() => {
+        setPricingCategoriesLoading(true);
+        fetchDataFromApi("/api/product/pricingCategories").then(res => {
+            if (!res?.error && Array.isArray(res?.data)) {
+                setPricingCategories(res.data);
+            } else {
+                setPricingCategories([]);
+            }
+            setPricingCategoriesLoading(false);
+        }).catch(() => {
+            setPricingCategories([]);
+            setPricingCategoriesLoading(false);
+        });
+    }, []);
+
+    // Fetch commission / shipping / GST / payment-gateway rates for the Price
+    // Calculator whenever the calculator's own category selection changes.
+    // Fetch rates by the pricing rule's own _id — not a product category id
+    useEffect(() => {
+        if (!calcCategory?._id) {
+            setCalcRates(null);
+            setCalcResult(null);
+            return;
+        }
+
+        setCalcRatesLoading(true);
+        setCalcResult(null);
+
+        fetchDataFromApi(`/api/product/pricingRates?id=${calcCategory._id}`).then(res => {
+            if (!res?.error && res?.data) {
+                setCalcRates({
+                    commissionPercent: Number(res.data.commissionPercent) || 0,
+                    paymentGatewayPercent: Number(res.data.paymentGatewayPercent) || 0,
+                    gstPercent: Number(res.data.gstPercent) || 0,
+                    shippingFee: Number(res.data.shippingFee) || 0,
+                });
+            } else {
+                setCalcRates(null);
+            }
+            setCalcRatesLoading(false);
+        }).catch(() => {
+            setCalcRates(null);
+            setCalcRatesLoading(false);
+        });
+    }, [calcCategory]);
+
+    // Works backward from cost price + desired margin to a suggested selling price,
+    // accounting for platform commission, payment gateway fee, GST and shipping —
+    // all of which are taken as a % (or flat fee) of the final selling price.
+    const calculatePrice = () => {
+        if (!calcRates || !calcInputs.costPrice) return;
+
+        const cost = Number(calcInputs.costPrice);
+        const margin = Number(calcInputs.marginPercent) || 0;
+        const { commissionPercent, paymentGatewayPercent, gstPercent, shippingFee } = calcRates;
+
+        const desiredProfit = cost * (margin / 100);
+        const numerator = cost + desiredProfit + shippingFee;
+        const totalPercentCut = (commissionPercent + paymentGatewayPercent + gstPercent) / 100;
+        const denominator = 1 - totalPercentCut;
+
+        const sellingPrice = denominator > 0 ? numerator / denominator : numerator;
+
+        const commissionAmt = sellingPrice * (commissionPercent / 100);
+        const paymentGatewayAmt = sellingPrice * (paymentGatewayPercent / 100);
+        const gstAmt = sellingPrice * (gstPercent / 100);
+        const netProfit = sellingPrice - cost - commissionAmt - paymentGatewayAmt - gstAmt - shippingFee;
+
+        setCalcResult({
+            sellingPrice,
+            commissionAmt,
+            paymentGatewayAmt,
+            gstAmt,
+            shippingFee,
+            netProfit,
+        });
+    };
+
+    // Auto-recalculate whenever the rates arrive and the seller has already typed a cost price
+    useEffect(() => {
+        if (calcRates && calcInputs.costPrice) {
+            calculatePrice();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [calcRates]);
+
+    const onChangeCalcInput = (e) => {
+        const { name, value } = e.target;
+        setCalcInputs(prev => ({ ...prev, [name]: value }));
+    };
+
+    const applyCalculatedPrice = () => {
+        if (!calcResult) return;
+        const roundedPrice = Math.round(calcResult.sellingPrice);
+
+        setFormFields(prev => {
+            let updated = { ...prev, price: roundedPrice };
+            if (prev.oldPrice) {
+                const oldPrice = Number(prev.oldPrice);
+                const discount = Math.floor(((oldPrice - roundedPrice) / oldPrice) * 100);
+                updated.discount = discount > 0 ? discount : 0;
+            }
+            return updated;
+        });
+
+        context?.alertBox("success", "Suggested price applied to Product Price");
+    };
 
     const handleChangeProductCat = (event) => {
         const catId = event.target.value;
@@ -723,6 +849,169 @@ const AddProduct = () => {
                                 <div>
                                     <h3 className={labelCls}>Product Rating</h3>
                                     <Rating name="half-rating" defaultValue={0} onChange={onChangeRating} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Price Calculator ──
+    Independent category picker (searchable) sourced from the pricings
+    collection. Helps the seller work out a selling price from cost price
+    + desired margin, factoring in commission, payment gateway fee, GST
+    and shipping for whichever category they pick here. */}
+                        <div className="mt-5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                <h4 className="text-[13.5px] font-bold text-indigo-900 flex items-center gap-2">
+                                    <FaCalculator className="text-indigo-500" /> Price Calculator
+                                </h4>
+                                {!calcCategory && (
+                                    <span className="text-[11.5px] text-indigo-500">Search and select a category to load rates</span>
+                                )}
+                                {calcCategory && calcRatesLoading && (
+                                    <span className="text-[11.5px] text-indigo-500 flex items-center gap-1">
+                                        <CircularProgress size={12} /> Loading rates…
+                                    </span>
+                                )}
+                                {calcCategory && !calcRatesLoading && !calcRates && (
+                                    <span className="text-[11.5px] text-red-500">Couldn't load rates for this category</span>
+                                )}
+                            </div>
+
+                            <div className="mb-3">
+                                <h3 className={labelCls}>Calculator Category</h3>
+                                <Autocomplete
+                                    size="small"
+                                    options={pricingCategories}
+                                    loading={pricingCategoriesLoading}
+                                    value={calcCategory}
+                                    getOptionLabel={(option) => option?.categoryName || ""}
+                                    isOptionEqualToValue={(option, value) => option?._id === value?._id}
+                                    onChange={(event, newValue) => setCalcCategory(newValue)}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            placeholder="Search category…"
+                                            sx={{
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: '8px',
+                                                    backgroundColor: '#fff',
+                                                    fontSize: '13.5px',
+                                                },
+                                            }}
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {pricingCategoriesLoading ? <CircularProgress size={14} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                        />
+                                    )}
+                                    noOptionsText={pricingCategoriesLoading ? "Loading…" : "No priced categories found"}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                                <div>
+                                    <h3 className={labelCls}>Cost Price (₹)</h3>
+                                    <input
+                                        type="number"
+                                        className={inputCls}
+                                        name="costPrice"
+                                        value={calcInputs.costPrice}
+                                        onChange={onChangeCalcInput}
+                                        placeholder="e.g. 500"
+                                    />
+                                </div>
+                                <div>
+                                    <h3 className={labelCls}>Desired Margin (%)</h3>
+                                    <input
+                                        type="number"
+                                        className={inputCls}
+                                        name="marginPercent"
+                                        value={calcInputs.marginPercent}
+                                        onChange={onChangeCalcInput}
+                                        placeholder="e.g. 20"
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <Button
+                                        variant="contained"
+                                        disableElevation
+                                        fullWidth
+                                        disabled={!calcRates || !calcInputs.costPrice}
+                                        onClick={calculatePrice}
+                                        sx={{
+                                            height: '42px',
+                                            textTransform: 'none',
+                                            fontSize: '13.5px',
+                                            fontWeight: 600,
+                                            borderRadius: '8px',
+                                            backgroundColor: '#4f46e5',
+                                            '&:hover': { backgroundColor: '#4338ca' },
+                                        }}
+                                    >
+                                        Calculate
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {calcResult && (
+                                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[12.5px] text-gray-500">
+                                            Suggested Selling Price {calcCategory ? `· ${calcCategory.categoryName}` : ''}
+                                        </span>
+                                        <span className="text-[17px] font-bold text-indigo-700">₹{calcResult.sellingPrice.toFixed(2)}</span>
+                                    </div>
+
+                                    <div className="border-t border-dashed border-gray-200 my-2" />
+
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[12px] text-gray-500">
+                                            <span>Platform Commission ({calcRates.commissionPercent}%)</span>
+                                            <span>- ₹{calcResult.commissionAmt.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[12px] text-gray-500">
+                                            <span>Payment Gateway Fee ({calcRates.paymentGatewayPercent}%)</span>
+                                            <span>- ₹{calcResult.paymentGatewayAmt.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[12px] text-gray-500">
+                                            <span>GST ({calcRates.gstPercent}%)</span>
+                                            <span>- ₹{calcResult.gstAmt.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[12px] text-gray-500">
+                                            <span>Shipping Fee</span>
+                                            <span>- ₹{calcResult.shippingFee.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-100">
+                                        <span className="text-[13px] font-semibold text-gray-700">Net Profit</span>
+                                        <span className={`text-[14px] font-bold ${calcResult.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            ₹{calcResult.netProfit.toFixed(2)}
+                                        </span>
+                                    </div>
+
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        disableElevation
+                                        onClick={applyCalculatedPrice}
+                                        sx={{
+                                            mt: 2,
+                                            textTransform: 'none',
+                                            fontSize: '12.5px',
+                                            fontWeight: 600,
+                                            borderRadius: '8px',
+                                            borderColor: '#c7d2fe',
+                                            color: '#4f46e5',
+                                            '&:hover': { borderColor: '#818cf8', backgroundColor: '#eef2ff' },
+                                        }}
+                                    >
+                                        Use this price
+                                    </Button>
                                 </div>
                             )}
                         </div>
