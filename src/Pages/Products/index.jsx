@@ -542,8 +542,7 @@ const thirdLevelOptions = useMemo(() => {
             <div
                 className="min-h-screen -m-6 p-6"
                 style={{
-                    backgroundColor: "#FAFAFD",
-                    backgroundImage: "radial-gradient(#E7E7F3 1px, transparent 1px)",
+                    backgroundImage: "radial-gradient(rgb(46, 46, 101) 1px, transparent 1px)",
                     backgroundSize: "22px 22px",
                 }}
             >
@@ -554,7 +553,7 @@ const thirdLevelOptions = useMemo(() => {
                         <HiOutlineCube className="text-[20px] text-[#6C63FF]" />
                     </div>
                     <div>
-                        <h2 className="text-[20px] font-[700] text-[#1E1B3A] tracking-tight leading-tight">
+                        <h2 className="text-[20px] font-[700] text-white tracking-tight leading-tight">
                             Products
                         </h2>
                         <p className="text-[13px] text-[#8A8AA3] mt-0.5">

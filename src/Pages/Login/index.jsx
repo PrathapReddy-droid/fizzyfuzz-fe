@@ -31,10 +31,13 @@ const PRODUCT_IMGS = [
   "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=120&h=120&fit=crop&q=80",
 ];
 
+// Simple 10-digit Indian mobile number check
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordShow, setisPasswordShow] = useState(false);
-  const [formFields, setFormsFields] = useState({ email: '', password: '' });
+  const [formFields, setFormsFields] = useState({ mobile: '', password: '' });
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [sessionToken, setSessionToken] = useState('');
   const [maskedMobile, setMaskedMobile] = useState('');
@@ -50,20 +53,30 @@ const Login = () => {
 
   const onChangeInput = (e) => {
     const { name, value } = e.target;
+    if (name === "mobile") {
+      // allow digits only, capped at 10
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+      setFormsFields(prev => ({ ...prev, mobile: digitsOnly }));
+      return;
+    }
     setFormsFields(prev => ({ ...prev, [name]: value }));
   };
 
   const valideValue = Object.values(formFields).every(el => el);
 
   const forgotPassword = () => {
-    if (!formFields.email) {
-      context.alertBox("error", "Please enter your email first");
+    if (!formFields.mobile) {
+      context.alertBox("error", "Please enter your mobile number first");
       return;
     }
-    context.alertBox("success", `OTP sent to ${formFields.email}`);
-    localStorage.setItem("userEmail", formFields.email);
+    if (!MOBILE_REGEX.test(formFields.mobile)) {
+      context.alertBox("error", "Please enter a valid 10-digit mobile number");
+      return;
+    }
+    context.alertBox("success", `OTP sent to ${formFields.mobile}`);
+    localStorage.setItem("userMobile", formFields.mobile);
     localStorage.setItem("actionType", 'forgot-password');
-    postData("/api/user/forgot-password", { email: formFields.email }).then((res) => {
+    postData("/api/user/forgot-password", { mobile: formFields.mobile }).then((res) => {
       if (res?.error === false) {
         context.alertBox("success", res?.message);
         history("/verify-account");
@@ -76,7 +89,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    if (!formFields.email) { context.alertBox("error", "Please enter email"); setIsLoading(false); return; }
+    if (!formFields.mobile) { context.alertBox("error", "Please enter mobile number"); setIsLoading(false); return; }
+    if (!MOBILE_REGEX.test(formFields.mobile)) {
+      context.alertBox("error", "Please enter a valid 10-digit mobile number");
+      setIsLoading(false);
+      return;
+    }
     if (!formFields.password) { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
 
     const payload = { ...formFields, role: import.meta.env.VITE_FRONTEND || "SELLER" };
@@ -165,7 +183,6 @@ const Login = () => {
           color: #fff;
         }
 
-        /* ── Full-page background image ── */
         .sl-bg-img {
           position: fixed;
           inset: 0;
@@ -191,7 +208,6 @@ const Login = () => {
               rgba(8,8,16,0.88) 100%);
         }
 
-        /* ── Atmospheric orbs (sit on top of background) ── */
         .sl-orb { position:fixed;border-radius:50%;filter:blur(100px);opacity:0.22;pointer-events:none;animation:slOrb 14s ease-in-out infinite alternate; z-index:1; }
         .sl-orb-1 { width:700px;height:700px;background:radial-gradient(circle,#f59e0b 0%,transparent 65%);top:-250px;left:-180px;animation-duration:16s; }
         .sl-orb-2 { width:550px;height:550px;background:radial-gradient(circle,#7c3aed 0%,transparent 65%);bottom:-150px;right:-100px;animation-duration:11s;animation-delay:-5s; }
@@ -219,7 +235,6 @@ const Login = () => {
           background-size: 200px 200px;
         }
 
-        /* ── Header ── */
         .sl-header {
           position:fixed;top:0;left:0;right:0;
           padding:16px 40px;
@@ -251,7 +266,6 @@ const Login = () => {
         .sl-nav-btns { display:flex;gap:10px;align-items:center; }
         @media(max-width:640px){ .sl-nav-btns{display:none;} }
 
-        /* ── Main Layout ── */
         .sl-main {
           min-height:100vh;
           display:flex;align-items:center;justify-content:center;
@@ -275,9 +289,6 @@ const Login = () => {
           .sl-banner{display:none;}
         }
 
-        /* ════════════════════════════════
-           LEFT BANNER
-        ════════════════════════════════ */
         .sl-banner {
           background:linear-gradient(165deg,rgba(19,13,0,0.96) 0%,rgba(13,13,10,0.94) 45%,rgba(18,9,0,0.96) 100%);
           border-right:1px solid rgba(245,158,11,0.1);
@@ -336,21 +347,6 @@ const Login = () => {
         }
         .sl-banner-desc { font-size:13.5px;color:rgba(255,255,255,0.38);line-height:1.75;margin-bottom:26px; }
 
-        .sl-products {
-          display:flex;gap:8px;margin-bottom:24px;overflow:hidden;
-        }
-        .sl-product-card {
-          flex:1;min-width:0;
-          background:rgba(255,255,255,0.04);
-          border:1px solid rgba(255,255,255,0.08);
-          border-radius:12px;overflow:hidden;
-          transition:transform 0.3s,border-color 0.3s;
-          cursor:pointer;
-        }
-        .sl-product-card:hover { transform:translateY(-3px);border-color:rgba(245,158,11,0.3); }
-        .sl-product-img { width:100%;aspect-ratio:1;object-fit:cover;display:block; }
-        .sl-product-label { font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);padding:5px 7px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-
         .sl-stats { display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap; }
         .sl-stat {
           background:rgba(245,158,11,0.07);
@@ -392,9 +388,6 @@ const Login = () => {
         .sl-proof-text strong { color:rgba(255,255,255,0.55);font-weight:600; }
         .sl-stars { display:flex;gap:2px;margin-bottom:2px; }
 
-        /* ════════════════════════════════
-           RIGHT FORM
-        ════════════════════════════════ */
         .sl-form-side {
           background:rgba(12,12,20,0.82);
           backdrop-filter:blur(28px);
@@ -420,6 +413,10 @@ const Login = () => {
         .sl-field { margin-bottom:17px; }
         .sl-label { font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:7px;display:block; }
         .sl-input-wrap { position:relative; }
+        .sl-mobile-prefix {
+          position:absolute;left:16px;top:50%;transform:translateY(-50%);
+          font-size:14px;color:rgba(255,255,255,0.4);pointer-events:none;
+        }
         .sl-input {
           width:100%;height:50px;
           background:rgba(255,255,255,0.05);
@@ -430,13 +427,32 @@ const Login = () => {
           box-sizing:border-box;
         }
         .sl-input.has-eye { padding-right:50px; }
-        .sl-input::placeholder { color:rgba(255,255,255,0.18); }
+        .sl-input.has-prefix { padding-left:38px; }
+        .sl-input::placeholder { color:rgba(255,255,255,0.09); }
         .sl-input:focus {
           border-color:rgba(245,158,11,0.65);
           background:rgba(245,158,11,0.06);
           box-shadow:0 0 0 3px rgba(245,158,11,0.1),0 2px 20px rgba(245,158,11,0.08);
         }
         .sl-input:disabled { opacity:0.45;cursor:not-allowed; }
+
+        /* Kill the browser's white/yellow autofill background */
+        .sl-input:-webkit-autofill,
+        .sl-input:-webkit-autofill:hover,
+        .sl-input:-webkit-autofill:focus,
+        .sl-input:-webkit-autofill:active {
+          -webkit-box-shadow: 0 0 0 1000px rgba(20,16,8,0.95) inset !important;
+          box-shadow: 0 0 0 1000px rgba(20,16,8,0.95) inset !important;
+          -webkit-text-fill-color: #fff !important;
+          caret-color: #fff;
+          border-color: rgba(245,158,11,0.4) !important;
+          transition: background-color 9999s ease-in-out 0s;
+        }
+        /* Firefox */
+        .sl-input:autofill {
+          box-shadow: 0 0 0 1000px rgba(20,16,8,0.95) inset !important;
+          -moz-text-fill-color: #fff !important;
+        }
         .sl-eye { position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.28);padding:4px;display:flex;align-items:center;transition:color 0.2s; }
         .sl-eye:hover { color:rgba(255,255,255,0.65); }
 
@@ -483,7 +499,6 @@ const Login = () => {
 
       <div className="sl-root">
 
-        {/* ── Full-page background image ── */}
         <div className="sl-bg-img">
           <img
             src={BG_IMAGE}
@@ -504,7 +519,6 @@ const Login = () => {
         <div className="sl-grid" />
         <div className="sl-noise" />
 
-        {/* Header */}
         <header className="sl-header">
           <Link to="/" className="sl-logo-mark">
             <div className="sl-logo-icon"><ShoppingCart size={18} color="#0a0a0f" /></div>
@@ -521,11 +535,9 @@ const Login = () => {
           </nav>
         </header>
 
-        {/* Main */}
         <main className="sl-main">
           <div className="sl-wrap">
 
-            {/* ══ LEFT BANNER ══ */}
             <div className="sl-banner">
               <span className="sl-sparkle" />
               <span className="sl-sparkle" />
@@ -557,24 +569,6 @@ const Login = () => {
                 <p className="sl-banner-desc">
                   Reach lakhs of customers, manage orders effortlessly, and track your revenue — all from one powerful dashboard.
                 </p>
-
-                {/* Product Image Showcase */}
-                {/* <div className="sl-products">
-                  {PRODUCT_IMGS.map((src, i) => (
-                    <div className="sl-product-card" key={i}>
-                      <img
-                        src={src}
-                        alt={`product ${i + 1}`}
-                        className="sl-product-img"
-                        loading="lazy"
-                        onError={e => { e.target.src = `https://placehold.co/120x120/1a1200/fcd34d?text=P${i+1}`; }}
-                      />
-                      <div className="sl-product-label">
-                        {["Watches","Skincare","Footwear","Fashion"][i]}
-                      </div>
-                    </div>
-                  ))}
-                </div> */}
 
                 <div className="sl-stats">
                   <div className="sl-stat">
@@ -622,7 +616,6 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* Social Proof */}
               <div className="sl-social-proof">
                 <div className="sl-avatars">
                   {AVATARS.map((src, i) => (
@@ -646,7 +639,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* ══ RIGHT FORM ══ */}
             <div className="sl-form-side">
               <div className="sl-form-head">
                 <p className="sl-form-eyebrow">Seller portal</p>
@@ -661,16 +653,22 @@ const Login = () => {
               {step === 'credentials' ? (
                 <form onSubmit={handleSubmit}>
                 <div className="sl-field">
-                  <label className="sl-label">Seller Email</label>
-                  <input
-                    type="email"
-                    className="sl-input"
-                    name="email"
-                    value={formFields.email}
-                    disabled={isLoading}
-                    onChange={onChangeInput}
-                    placeholder="seller@example.com"
-                  />
+                  <label className="sl-label">Mobile Number</label>
+                  <div className="sl-input-wrap">
+                    <span className="sl-mobile-prefix">+91</span>
+                    <input
+                      type="tel"
+                      className="sl-input has-prefix"
+                      name="mobile"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      maxLength={10}
+                      value={formFields.mobile}
+                      disabled={isLoading}
+                      onChange={onChangeInput}
+                      placeholder="9400000000"
+                    />
+                  </div>
                 </div>
 
                 <div className="sl-field">
@@ -708,7 +706,6 @@ const Login = () => {
                   }
                 </button>
 
-                {/* Trust badges */}
                 <div className="sl-trust">
                   <div className="sl-trust-item">
                     <ShieldCheck size={12} color="#34d399" />
