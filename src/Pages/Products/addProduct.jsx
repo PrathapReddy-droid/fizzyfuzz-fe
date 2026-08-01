@@ -491,12 +491,24 @@ const AddProduct = () => {
                 ...prev,
                 [name]: value
             };
+
+            // Recalculate discount whenever either side changes — Price changing
+            // needs the existing MRP, and MRP changing needs the existing Price,
+            // so both fields must trigger the same recompute.
             if (name === "price" && prev.oldPrice) {
                 const price = Number(value);
                 const oldPrice = Number(prev.oldPrice);
                 const discount = Math.floor(((oldPrice - price) / oldPrice) * 100);
                 updatedFields.discount = discount > 0 ? discount : 0;
+            } else if (name === "oldPrice" && prev.price) {
+                const oldPrice = Number(value);
+                const price = Number(prev.price);
+                const discount = oldPrice > 0
+                    ? Math.floor(((oldPrice - price) / oldPrice) * 100)
+                    : 0;
+                updatedFields.discount = discount > 0 ? discount : 0;
             }
+
             return updatedFields;
         });
     };
