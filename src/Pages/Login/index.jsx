@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { CgLogIn } from "react-icons/cg";
 import { FaRegUser } from "react-icons/fa6";
-import { FaRegEye, FaEyeSlash } from "react-icons/fa";
+// import { FaRegEye, FaEyeSlash } from "react-icons/fa";
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchDataFromApi, postData } from "../../utils/api";
 import { MyContext } from "../../App.jsx";
@@ -36,7 +36,7 @@ const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isPasswordShow, setisPasswordShow] = useState(false);
+  // const [isPasswordShow, setisPasswordShow] = useState(false);
   const [formFields, setFormsFields] = useState({ mobile: '', password: '' });
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [sessionToken, setSessionToken] = useState('');
@@ -62,7 +62,8 @@ const Login = () => {
     setFormsFields(prev => ({ ...prev, [name]: value }));
   };
 
-  const valideValue = Object.values(formFields).every(el => el);
+  // const valideValue = Object.values(formFields).every(el => el); // was requiring password too
+  const valideValue = MOBILE_REGEX.test(formFields.mobile);
 
   const forgotPassword = () => {
     if (!formFields.mobile) {
@@ -95,7 +96,7 @@ const Login = () => {
       setIsLoading(false);
       return;
     }
-    if (!formFields.password) { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
+    // if (!formFields.password) { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
 
     const payload = { ...formFields, role: import.meta.env.VITE_FRONTEND || "SELLER" };
 
@@ -671,7 +672,7 @@ const Login = () => {
                   </div>
                 </div>
 
-                <div className="sl-field">
+                {/* <div className="sl-field">
                   <label className="sl-label">Password</label>
                   <div className="sl-input-wrap">
                     <input
@@ -687,7 +688,7 @@ const Login = () => {
                       {isPasswordShow ? <FaEyeSlash size={15} /> : <FaRegEye size={15} />}
                     </button>
                   </div>
-                </div>
+                </div> */}
 
                 <div className="sl-row">
                   <label className="sl-remember">
