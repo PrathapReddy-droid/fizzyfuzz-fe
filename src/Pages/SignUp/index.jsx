@@ -1,39 +1,35 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaRegUser } from "react-icons/fa6";
-import { FaRegEye, FaEyeSlash } from "react-icons/fa";
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchDataFromApi, postData } from '../../utils/api.js';
 import { MyContext } from "../../App.jsx";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { firebaseApp } from "../../firebase";
-import { ShoppingCart, UserPlus, ShieldCheck, TrendingUp, Store, Rocket, BadgeIndianRupee, Star, PackageCheck, BarChart2 } from "lucide-react";
+import { ShoppingCart, UserPlus, ShieldCheck, TrendingUp, Store, Rocket, BadgeIndianRupee, Star, PackageCheck, ArrowLeft, ShieldQuestion } from "lucide-react";
 
 const auth = getAuth(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
 
-// Full-page background — dark luxury shopping mall (matches Login page)
 const BG_IMAGE = "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=85&fit=crop";
 
-// Placeholder seller avatars via DiceBear
 const AVATARS = [
   "https://api.dicebear.com/7.x/avataaars/svg?seed=seller4&backgroundColor=b6e3f4",
   "https://api.dicebear.com/7.x/avataaars/svg?seed=seller5&backgroundColor=ffd5dc",
   "https://api.dicebear.com/7.x/avataaars/svg?seed=seller6&backgroundColor=c0aede",
 ];
 
-// Unsplash product placeholder images
-const PRODUCT_IMGS = [
-  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=120&h=120&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=120&h=120&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=120&h=120&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=120&h=120&fit=crop&q=80",
-];
+const RESEND_SECONDS = 60;
 
 const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isPasswordShow, setisPasswordShow] = useState(false);
-  const [formFields, setFormFields] = useState({ name: "", email: "", password: "", mobile: "" });
+  const [step, setStep] = useState("details"); // "details" | "otp"
+  const [formFields, setFormFields] = useState({ name: "", email: "", mobile: "" });
+  const [otp, setOtp] = useState("");
+  const [sessionToken, setSessionToken] = useState("");
+  const [maskedMobile, setMaskedMobile] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+  const timerRef = useRef(null);
 
   const context = useContext(MyContext);
   const history = useNavigate();
@@ -44,13 +40,20 @@ const SignUp = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (resendTimer <= 0) { clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => setResendTimer(t => t - 1), 1000);
+    return () => clearInterval(timerRef.current);
+  }, [resendTimer]);
+
   const onChangeInput = (e) => {
     const { name, value } = e.target;
     setFormFields(prev => ({ ...prev, [name]: value }));
   };
 
-  const valideValue = Object.values(formFields).every(el => el);
+  const valideValue = formFields.name && formFields.email && formFields.mobile?.length === 10;
 
+  // ── Step 1: submit details, get OTP sent to mobile ──
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -58,21 +61,72 @@ const SignUp = () => {
     if (!formFields.name)                  { context.alertBox("error", "Please enter full name"); setIsLoading(false); return; }
     if (!formFields.email)                 { context.alertBox("error", "Please enter email id"); setIsLoading(false); return; }
     if (formFields.mobile?.length !== 10)  { context.alertBox("error", "Please enter a valid 10-digit mobile number"); setIsLoading(false); return; }
-    if (!formFields.password)              { context.alertBox("error", "Please enter password"); setIsLoading(false); return; }
 
     const payload = { ...formFields, role: "SELLER" };
 
     postData("/api/user/sellerRegister", payload).then((res) => {
+      setIsLoading(false);
       if (res?.error !== true) {
-        setIsLoading(false);
-        context.alertBox("success", res?.message);
-        localStorage.setItem("userEmail", formFields.email);
-        setFormFields({ name: "", email: "", password: "", mobile: "" });
-        history("/verify-account");
+        context.alertBox("success", res?.message || "OTP sent to your mobile number");
+        setSessionToken(res?.data?.sessionToken || "");
+        setMaskedMobile(res?.data?.mobile || "");
+        setStep("otp");
+        setResendTimer(RESEND_SECONDS);
       } else {
         context.alertBox("error", res?.message);
-        setIsLoading(false);
       }
+    }).catch(() => {
+      setIsLoading(false);
+      context.alertBox("error", "Something went wrong, please try again");
+    });
+  };
+
+  // ── Step 2: verify OTP ──
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    if (otp.length !== 6) { context.alertBox("error", "Please enter the 6-digit OTP"); return; }
+
+    setIsLoading(true);
+    postData("/api/user/verifyRegisterOtp", { sessionToken, otp }).then((res) => {
+      setIsLoading(false);
+      if (res?.error !== true) {
+        context.alertBox("success", res?.message || "Registration verified successfully");
+        history("/login");
+      } else {
+        if (res?.sessionExpired) {
+          context.alertBox("error", "Session expired, please start again");
+          setStep("details");
+          setOtp("");
+        } else {
+          context.alertBox("error", res?.message);
+        }
+      }
+    }).catch(() => {
+      setIsLoading(false);
+      context.alertBox("error", "Something went wrong, please try again");
+    });
+  };
+
+  const handleResendOtp = () => {
+    if (resendTimer > 0) return;
+    setIsLoading(true);
+    postData("/api/user/resendRegisterOtp", { sessionToken }).then((res) => {
+      setIsLoading(false);
+      if (res?.error !== true) {
+        context.alertBox("success", "OTP resent");
+        setSessionToken(res?.data?.sessionToken || sessionToken);
+        setMaskedMobile(res?.data?.mobile || maskedMobile);
+        setResendTimer(RESEND_SECONDS);
+      } else {
+        context.alertBox("error", res?.message);
+        if (res?.message?.toLowerCase().includes("expired")) {
+          setStep("details");
+          setOtp("");
+        }
+      }
+    }).catch(() => {
+      setIsLoading(false);
+      context.alertBox("error", "Something went wrong, please try again");
     });
   };
 
@@ -90,13 +144,7 @@ const SignUp = () => {
           color: #fff;
         }
 
-        /* ── Full-page background image ── */
-        .ss-bg-img {
-          position: fixed;
-          inset: 0;
-          z-index: 0;
-          pointer-events: none;
-        }
+        .ss-bg-img { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         .ss-bg-img img {
           width: 100%; height: 100%;
           object-fit: cover;
@@ -115,7 +163,6 @@ const SignUp = () => {
             rgba(8,8,16,0.88) 100%);
         }
 
-        /* ── Orbs ── */
         .ss-orb { position:fixed;border-radius:50%;filter:blur(100px);opacity:0.22;pointer-events:none;animation:ssOrb 14s ease-in-out infinite alternate;z-index:1; }
         .ss-orb-1 { width:700px;height:700px;background:radial-gradient(circle,#f59e0b 0%,transparent 65%);top:-250px;left:-180px;animation-duration:16s; }
         .ss-orb-2 { width:550px;height:550px;background:radial-gradient(circle,#7c3aed 0%,transparent 65%);bottom:-150px;right:-100px;animation-duration:11s;animation-delay:-5s; }
@@ -142,7 +189,6 @@ const SignUp = () => {
           background-size: 200px 200px;
         }
 
-        /* ── Header ── */
         .ss-header {
           position:fixed;top:0;left:0;right:0;
           padding:16px 40px;
@@ -173,7 +219,6 @@ const SignUp = () => {
         .ss-nav-btns { display:flex;gap:10px;align-items:center; }
         @media(max-width:640px){ .ss-nav-btns{display:none;} }
 
-        /* ── Main Layout ── */
         .ss-main {
           min-height:100vh;
           display:flex;align-items:center;justify-content:center;
@@ -197,9 +242,6 @@ const SignUp = () => {
           .ss-banner{display:none;}
         }
 
-        /* ════════════════════════════════
-           LEFT BANNER
-        ════════════════════════════════ */
         .ss-banner {
           background:linear-gradient(165deg,rgba(19,13,0,0.96) 0%,rgba(13,13,10,0.94) 45%,rgba(18,9,0,0.96) 100%);
           border-right:1px solid rgba(245,158,11,0.1);
@@ -217,7 +259,6 @@ const SignUp = () => {
           pointer-events:none;
         }
 
-        /* sparkle dots */
         .ss-sparkle {
           position:absolute;width:3px;height:3px;border-radius:50%;
           background:#fcd34d;opacity:0;
@@ -232,7 +273,6 @@ const SignUp = () => {
           50%{opacity:0.8;transform:scale(1);}
         }
 
-        /* rocket trajectory deco */
         .ss-rocket-deco {
           position:absolute;bottom:110px;right:20px;
           width:150px;height:80px;
@@ -260,20 +300,6 @@ const SignUp = () => {
         }
         .ss-banner-desc { font-size:13.5px;color:rgba(255,255,255,0.38);line-height:1.75;margin-bottom:26px; }
 
-        /* ── Product Showcase Strip ── */
-        .ss-products { display:flex;gap:8px;margin-bottom:24px;overflow:hidden; }
-        .ss-product-card {
-          flex:1;min-width:0;
-          background:rgba(255,255,255,0.04);
-          border:1px solid rgba(255,255,255,0.08);
-          border-radius:12px;overflow:hidden;
-          transition:transform 0.3s,border-color 0.3s;cursor:pointer;
-        }
-        .ss-product-card:hover { transform:translateY(-3px);border-color:rgba(245,158,11,0.3); }
-        .ss-product-img { width:100%;aspect-ratio:1;object-fit:cover;display:block; }
-        .ss-product-label { font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);padding:5px 7px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-
-        /* ── Stats ── */
         .ss-stats { display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap; }
         .ss-stat {
           background:rgba(245,158,11,0.07);
@@ -285,7 +311,6 @@ const SignUp = () => {
         .ss-stat-num { font-family:'DM Serif Display',serif;font-size:20px;color:#fcd34d;line-height:1; }
         .ss-stat-label { font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px; }
 
-        /* ── Perks ── */
         .ss-perks { display:flex;flex-direction:column;gap:8px; }
         .ss-perk {
           display:flex;align-items:center;gap:12px;
@@ -299,7 +324,6 @@ const SignUp = () => {
         .ss-perk-text h5 { font-size:13px;font-weight:600;color:#fff;margin:0 0 2px; }
         .ss-perk-text p  { font-size:11px;color:rgba(255,255,255,0.28);margin:0; }
 
-        /* ── Social Proof ── */
         .ss-social-proof {
           position:relative;z-index:1;margin-top:24px;
           padding-top:18px;border-top:1px solid rgba(255,255,255,0.06);
@@ -317,9 +341,6 @@ const SignUp = () => {
         .ss-proof-text strong { color:rgba(255,255,255,0.55);font-weight:600; }
         .ss-stars { display:flex;gap:2px;margin-bottom:2px; }
 
-        /* ════════════════════════════════
-           RIGHT FORM
-        ════════════════════════════════ */
         .ss-form-side {
           background:rgba(12,12,20,0.82);
           backdrop-filter:blur(28px);
@@ -335,15 +356,23 @@ const SignUp = () => {
         @media(max-width:520px){ .ss-form-side{padding:32px 24px;} }
 
         .ss-form-head { margin-bottom:20px; }
+        .ss-back-btn {
+          display:inline-flex;align-items:center;gap:5px;
+          background:none;border:none;cursor:pointer;
+          font-size:12px;color:rgba(255,255,255,0.4);
+          padding:0;margin-bottom:14px;font-family:'DM Sans',sans-serif;
+          transition:color 0.2s;
+        }
+        .ss-back-btn:hover { color:#fcd34d; }
         .ss-form-eyebrow { font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.28);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px; }
         .ss-form-eyebrow::before { content:'';display:block;width:18px;height:1px;background:rgba(245,158,11,0.5); }
         .ss-form-title { font-family:'DM Serif Display',serif;font-size:27px;color:#fff;margin-bottom:6px;line-height:1.2; }
         .ss-form-title em { font-style:italic;background:linear-gradient(135deg,#fcd34d,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
         .ss-form-sub { font-size:13px;color:rgba(255,255,255,0.32); }
+        .ss-form-sub strong { color:rgba(255,255,255,0.6); }
 
         .ss-divider { height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,0.3),transparent);margin-bottom:18px; }
 
-        /* ── Fields ── */
         .ss-field { margin-bottom:13px; }
         .ss-label { font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:7px;display:block; }
         .ss-input-wrap { position:relative; }
@@ -356,7 +385,6 @@ const SignUp = () => {
           padding:0 16px;transition:all 0.25s;outline:none;
           box-sizing:border-box;
         }
-        .ss-input.has-eye { padding-right:50px; }
         .ss-input::placeholder { color:rgba(255,255,255,0.18); }
         .ss-input:focus {
           border-color:rgba(245,158,11,0.65);
@@ -364,10 +392,10 @@ const SignUp = () => {
           box-shadow:0 0 0 3px rgba(245,158,11,0.1),0 2px 20px rgba(245,158,11,0.08);
         }
         .ss-input:disabled { opacity:0.45;cursor:not-allowed; }
-        .ss-eye { position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.28);padding:4px;display:flex;align-items:center;transition:color 0.2s; }
-        .ss-eye:hover { color:rgba(255,255,255,0.65); }
+        .ss-otp-input {
+          letter-spacing:8px;font-size:20px;font-weight:600;text-align:center;
+        }
 
-        /* phone row */
         .ss-phone-row { display:flex; }
         .ss-country-code {
           height:48px;min-width:56px;
@@ -393,7 +421,17 @@ const SignUp = () => {
         .ss-phone-input:disabled { opacity:0.45;cursor:not-allowed; }
         .ss-mobile-err { font-size:11px;color:#f87171;margin-top:5px; }
 
-        /* terms */
+        .ss-otp-hint {
+          display:flex;align-items:center;gap:8px;
+          background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);
+          border-radius:10px;padding:10px 12px;margin-bottom:16px;
+          font-size:12.5px;color:rgba(255,255,255,0.55);
+        }
+
+        .ss-resend-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12.5px;color:rgba(255,255,255,0.32); }
+        .ss-resend-btn { background:none;border:none;color:#fcd34d;font-weight:600;font-size:12.5px;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0; }
+        .ss-resend-btn:disabled { color:rgba(255,255,255,0.25);cursor:not-allowed; }
+
         .ss-terms {
           display:flex;align-items:flex-start;gap:9px;
           font-size:13px;color:rgba(255,255,255,0.35);
@@ -403,12 +441,10 @@ const SignUp = () => {
         .ss-terms a { color:#fcd34d;font-weight:600;text-decoration:none;transition:color 0.2s; }
         .ss-terms a:hover { color:#fb923c;text-decoration:underline; }
 
-        /* login row */
         .ss-login-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:13px;color:rgba(255,255,255,0.32); }
         .ss-login-link { color:#fcd34d;font-weight:600;text-decoration:none;transition:color 0.2s; }
         .ss-login-link:hover { color:#fb923c; }
 
-        /* submit */
         .ss-submit {
           width:100%;height:52px;
           background:linear-gradient(135deg,#f59e0b 0%,#f97316 100%);
@@ -429,7 +465,6 @@ const SignUp = () => {
         .ss-submit:hover:not(:disabled)::after { animation:ssShimmer 0.5s ease forwards; }
         @keyframes ssShimmer { to{left:140%;} }
 
-        /* trust badges */
         .ss-trust {
           display:flex;align-items:center;justify-content:center;gap:18px;
           padding:11px;
@@ -443,7 +478,6 @@ const SignUp = () => {
 
       <div className="ss-root">
 
-        {/* Full-page background image */}
         <div className="ss-bg-img">
           <img
             src={BG_IMAGE}
@@ -464,7 +498,6 @@ const SignUp = () => {
         <div className="ss-grid" />
         <div className="ss-noise" />
 
-        {/* Header */}
         <header className="ss-header">
           <Link to="/" className="ss-logo-mark">
             <div className="ss-logo-icon"><ShoppingCart size={18} color="#0a0a0f" /></div>
@@ -481,18 +514,15 @@ const SignUp = () => {
           </nav>
         </header>
 
-        {/* Main */}
         <main className="ss-main">
           <div className="ss-wrap">
 
-            {/* ══ LEFT BANNER ══ */}
             <div className="ss-banner">
               <span className="ss-sparkle" />
               <span className="ss-sparkle" />
               <span className="ss-sparkle" />
               <span className="ss-sparkle" />
 
-              {/* Rocket trajectory deco SVG */}
               <svg className="ss-rocket-deco" viewBox="0 0 150 80" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10,70 Q40,60 60,40 Q90,10 140,5"
                   stroke="url(#rocketGrad)" strokeWidth="1.5" strokeDasharray="5 4"
@@ -517,24 +547,6 @@ const SignUp = () => {
                 <p className="ss-banner-desc">
                   Register as a seller and tap into lakhs of active buyers. It takes less than 2 minutes to get started.
                 </p>
-
-                {/* Product Image Showcase */}
-                {/* <div className="ss-products">
-                  {PRODUCT_IMGS.map((src, i) => (
-                    <div className="ss-product-card" key={i}>
-                      <img
-                        src={src}
-                        alt={`product ${i + 1}`}
-                        className="ss-product-img"
-                        loading="lazy"
-                        onError={e => { e.target.src = `https://placehold.co/120x120/1a1200/fcd34d?text=P${i+1}`; }}
-                      />
-                      <div className="ss-product-label">
-                        {["Watches","Skincare","Footwear","Fashion"][i]}
-                      </div>
-                    </div>
-                  ))}
-                </div> */}
 
                 <div className="ss-stats">
                   <div className="ss-stat">
@@ -582,7 +594,6 @@ const SignUp = () => {
                 </div>
               </div>
 
-              {/* Social Proof */}
               <div className="ss-social-proof">
                 <div className="ss-avatars">
                   {AVATARS.map((src, i) => (
@@ -608,123 +619,184 @@ const SignUp = () => {
 
             {/* ══ RIGHT FORM ══ */}
             <div className="ss-form-side">
-              <div className="ss-form-head">
-                <p className="ss-form-eyebrow">Seller registration</p>
-                <h1 className="ss-form-title">Open your <em>store</em></h1>
-                <p className="ss-form-sub">Create your seller account to start listing products</p>
-              </div>
 
-              <div className="ss-divider" />
-
-              <form onSubmit={handleSubmit}>
-                <div className="ss-field">
-                  <label className="ss-label">Full Name</label>
-                  <input
-                    type="text"
-                    className="ss-input"
-                    name="name"
-                    value={formFields.name}
-                    disabled={isLoading}
-                    onChange={onChangeInput}
-                    placeholder="Your full name"
-                  />
-                </div>
-
-                <div className="ss-field">
-                  <label className="ss-label">Business Email</label>
-                  <input
-                    type="email"
-                    className="ss-input"
-                    name="email"
-                    value={formFields.email}
-                    disabled={isLoading}
-                    onChange={onChangeInput}
-                    placeholder="seller@yourbusiness.com"
-                  />
-                </div>
-
-                <div className="ss-field">
-                  <label className="ss-label">Mobile Number</label>
-                  <div className="ss-phone-row">
-                    <div className="ss-country-code">+91</div>
-                    <input
-                      type="text"
-                      className="ss-phone-input"
-                      name="mobile"
-                      value={formFields.mobile}
-                      disabled={isLoading}
-                      maxLength={10}
-                      inputMode="numeric"
-                      placeholder="10-digit number"
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) onChangeInput({ target: { name: "mobile", value } });
-                      }}
-                    />
+              {step === "details" ? (
+                <>
+                  <div className="ss-form-head">
+                    <p className="ss-form-eyebrow">Seller registration</p>
+                    <h1 className="ss-form-title">Open your <em>store</em></h1>
+                    <p className="ss-form-sub">Create your seller account to start listing products</p>
                   </div>
-                  {formFields.mobile && formFields.mobile.length !== 10 && (
-                    <p className="ss-mobile-err">Mobile number must be 10 digits</p>
-                  )}
-                </div>
 
-                <div className="ss-field">
-                  <label className="ss-label">Password</label>
-                  <div className="ss-input-wrap">
-                    <input
-                      type={isPasswordShow ? 'text' : 'password'}
-                      className="ss-input has-eye"
-                      name="password"
-                      value={formFields.password}
-                      disabled={isLoading}
-                      onChange={onChangeInput}
-                      placeholder="••••••••"
-                    />
-                    <button type="button" className="ss-eye" onClick={() => setisPasswordShow(!isPasswordShow)}>
-                      {isPasswordShow ? <FaEyeSlash size={15} /> : <FaRegEye size={15} />}
+                  <div className="ss-divider" />
+
+                  <form onSubmit={handleSubmit}>
+                    <div className="ss-field">
+                      <label className="ss-label">Full Name</label>
+                      <input
+                        type="text"
+                        className="ss-input"
+                        name="name"
+                        value={formFields.name}
+                        disabled={isLoading}
+                        onChange={onChangeInput}
+                        placeholder="Your full name"
+                      />
+                    </div>
+
+                    <div className="ss-field">
+                      <label className="ss-label">Business Email</label>
+                      <input
+                        type="email"
+                        className="ss-input"
+                        name="email"
+                        value={formFields.email}
+                        disabled={isLoading}
+                        onChange={onChangeInput}
+                        placeholder="seller@yourbusiness.com"
+                      />
+                    </div>
+
+                    <div className="ss-field">
+                      <label className="ss-label">Mobile Number</label>
+                      <div className="ss-phone-row">
+                        <div className="ss-country-code">+91</div>
+                        <input
+                          type="text"
+                          className="ss-phone-input"
+                          name="mobile"
+                          value={formFields.mobile}
+                          disabled={isLoading}
+                          maxLength={10}
+                          inputMode="numeric"
+                          placeholder="10-digit number"
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+                            if (value.length <= 10) onChangeInput({ target: { name: "mobile", value } });
+                          }}
+                        />
+                      </div>
+                      {formFields.mobile && formFields.mobile.length !== 10 && (
+                        <p className="ss-mobile-err">Mobile number must be 10 digits</p>
+                      )}
+                    </div>
+
+                    <div className="ss-terms">
+                      <input type="checkbox" required />
+                      <span>
+                        I agree to the{" "}
+                        <Link to="https://fizzyfuzz.in" target="_blank">Seller Terms</Link>
+                        {" "}and{" "}
+                        <Link to="https://fizzyfuzz.in" target="_blank">Privacy Policy</Link>
+                      </span>
+                    </div>
+
+                    <div className="ss-login-row">
+                      <span>Already a seller?</span>
+                      <Link to="/login" className="ss-login-link">Sign In →</Link>
+                    </div>
+
+                    <button type="submit" className="ss-submit" disabled={!valideValue || isLoading}>
+                      {isLoading
+                        ? <CircularProgress color="inherit" size={22} />
+                        : <><UserPlus size={16} /> Send OTP &amp; Continue</>
+                      }
                     </button>
-                  </div>
-                </div>
 
-                <div className="ss-terms">
-                  <input type="checkbox" required />
-                  <span>
-                    I agree to the{" "}
-                    <Link to="https://fizzyfuzz.in" target="_blank">Seller Terms</Link>
-                    {" "}and{" "}
-                    <Link to="https://fizzyfuzz.in" target="_blank">Privacy Policy</Link>
-                  </span>
-                </div>
+                    <div className="ss-trust">
+                      <div className="ss-trust-item">
+                        <ShieldCheck size={12} color="#34d399" />
+                        SSL Secured
+                      </div>
+                      <div className="ss-trust-sep" />
+                      <div className="ss-trust-item">
+                        <PackageCheck size={12} color="#a5b4fc" />
+                        256-bit Encrypted
+                      </div>
+                      <div className="ss-trust-sep" />
+                      <div className="ss-trust-item">
+                        <Star size={12} color="#f59e0b" />
+                        4.9 / 5 Rating
+                      </div>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="ss-back-btn" onClick={() => { setStep("details"); setOtp(""); }}>
+                    <ArrowLeft size={13} /> Back
+                  </button>
 
-                <div className="ss-login-row">
-                  <span>Already a seller?</span>
-                  <Link to="/login" className="ss-login-link">Sign In →</Link>
-                </div>
+                  <div className="ss-form-head">
+                    <p className="ss-form-eyebrow">Verify mobile</p>
+                    <h1 className="ss-form-title">Enter <em>OTP</em></h1>
+                    <p className="ss-form-sub">
+                      Sent a 6-digit code to <strong>+91 {maskedMobile}</strong>
+                    </p>
+                  </div>
 
-                <button type="submit" className="ss-submit" disabled={!valideValue || isLoading}>
-                  {isLoading
-                    ? <CircularProgress color="inherit" size={22} />
-                    : <><UserPlus size={16} /> Register as Seller</>
-                  }
-                </button>
+                  <div className="ss-divider" />
 
-                {/* Trust badges */}
-                <div className="ss-trust">
-                  <div className="ss-trust-item">
-                    <ShieldCheck size={12} color="#34d399" />
-                    SSL Secured
+                  <div className="ss-otp-hint">
+                    <ShieldQuestion size={16} color="#fcd34d" />
+                    Didn't receive it? Check the number or use resend below.
                   </div>
-                  <div className="ss-trust-sep" />
-                  <div className="ss-trust-item">
-                    <PackageCheck size={12} color="#a5b4fc" />
-                    256-bit Encrypted
-                  </div>
-                  <div className="ss-trust-sep" />
-                  <div className="ss-trust-item">
-                    <Star size={12} color="#f59e0b" />
-                    4.9 / 5 Rating
-                  </div>
-                </div>
-              </form>
+
+                  <form onSubmit={handleVerifyOtp}>
+                    <div className="ss-field">
+                      <label className="ss-label">6-Digit OTP</label>
+                      <input
+                        type="text"
+                        className="ss-input ss-otp-input"
+                        name="otp"
+                        value={otp}
+                        disabled={isLoading}
+                        maxLength={6}
+                        inputMode="numeric"
+                        placeholder="••••••"
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="ss-resend-row">
+                      <span>{resendTimer > 0 ? `Resend available in ${resendTimer}s` : "Didn't get the code?"}</span>
+                      <button
+                        type="button"
+                        className="ss-resend-btn"
+                        disabled={resendTimer > 0 || isLoading}
+                        onClick={handleResendOtp}
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+
+                    <button type="submit" className="ss-submit" disabled={otp.length !== 6 || isLoading}>
+                      {isLoading
+                        ? <CircularProgress color="inherit" size={22} />
+                        : <><ShieldCheck size={16} /> Verify &amp; Create Account</>
+                      }
+                    </button>
+
+                    <div className="ss-trust">
+                      <div className="ss-trust-item">
+                        <ShieldCheck size={12} color="#34d399" />
+                        SSL Secured
+                      </div>
+                      <div className="ss-trust-sep" />
+                      <div className="ss-trust-item">
+                        <PackageCheck size={12} color="#a5b4fc" />
+                        256-bit Encrypted
+                      </div>
+                      <div className="ss-trust-sep" />
+                      <div className="ss-trust-item">
+                        <Star size={12} color="#f59e0b" />
+                        4.9 / 5 Rating
+                      </div>
+                    </div>
+                  </form>
+                </>
+              )}
             </div>
 
           </div>
