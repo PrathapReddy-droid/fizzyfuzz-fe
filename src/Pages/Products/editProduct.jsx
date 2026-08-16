@@ -62,6 +62,9 @@ const EditProduct = () => {
         brand: "",
         price: "",
         oldPrice: "",
+        // Return policy
+        isReturnable: "",
+        returnDays: 7,
         category: "",
         catName: "",
         catId: "",
@@ -108,7 +111,6 @@ const EditProduct = () => {
     const [checkedSwitch, setCheckedSwitch] = useState(false);
 
     const history = useNavigate();
-
     const context = useContext(MyContext);
     const handleVideoSelect = async (e) => {
         const file = e.target.files[0];
@@ -160,6 +162,23 @@ const EditProduct = () => {
         } catch (err) {
             console.error("Upload failed:", err);
         }
+    };
+
+    // Return policy handlers — both read from and write to formFields so the
+    // Select components (bound to formFields.isReturnable / formFields.returnDays)
+    // always reflect the same state they update.
+    const handleChangeReturnable = (event) => {
+        const value = event.target.value;
+        setFormFields(prev => ({
+            ...prev,
+            isReturnable: value,
+            // Reset to the default 7-day window each time it's switched back to Yes
+            returnDays: value === "Yes" ? (prev.returnDays || 7) : ""
+        }));
+    };
+
+    const handleChangeReturnDays = (event) => {
+        setFormFields(prev => ({ ...prev, returnDays: event.target.value }));
     };
 
     const [variantOptions, setVariantOptions] = useState({
@@ -233,6 +252,11 @@ const EditProduct = () => {
                 brand: res?.product?.brand,
                 price: Number(res?.product?.price || 0),
                 oldPrice: Number(res?.product?.oldPrice || 0),
+                // Return policy — pulled straight into formFields so the Selects
+                // (bound to formFields.isReturnable / formFields.returnDays) show
+                // the saved value immediately instead of being reset to defaults.
+                isReturnable: res?.product?.isReturnable || "",
+                returnDays: res?.product?.returnDays || 7,
                 category: res?.product?.category,
                 catName: res?.product?.catName,
                 catId: res?.product?.catId,
@@ -439,6 +463,14 @@ const EditProduct = () => {
             return false;
         }
 
+        if (formFields?.isReturnable === "") {
+            context.alertBox("error", "Please select whether the product is returnable");
+            return false;
+        }
+        if (formFields?.isReturnable === "Yes" && !formFields?.returnDays) {
+            context.alertBox("error", "Please select a return window");
+            return false;
+        }
 
         if (formFields?.oldPrice === "") {
             context.alertBox("error", "Please enter product MRP");
@@ -500,6 +532,7 @@ const EditProduct = () => {
                 }, 1000);
             } else {
                 setIsLoading(false);
+                history("/products");
                 context.alertBox("error", res?.data?.message);
             }
         })
@@ -626,6 +659,41 @@ const EditProduct = () => {
                                 <h3 className={labelCls}>Product PIN Code</h3>
                                 <input type="number" name="product_pincode" value={formFields.product_pincode} onChange={onChangeInput} className={inputCls} placeholder="e.g. 682001" />
                             </div>
+
+                            {/* Return policy — determines whether "Return within X days" shows on the PDP.
+                                Both Selects read from and write to formFields, so the displayed value
+                                always matches the state that gets submitted. */}
+                            <div>
+                                <h3 className={labelCls}>Is Product Returnable?</h3>
+                                <Select
+                                    size="small"
+                                    sx={selectSx}
+                                    displayEmpty
+                                    value={formFields.isReturnable}
+                                    onChange={handleChangeReturnable}
+                                >
+                                    <MenuItem value="" disabled>Select an option</MenuItem>
+                                    <MenuItem value="Yes">Returnable</MenuItem>
+                                    <MenuItem value="No">Not Returnable</MenuItem>
+                                </Select>
+                            </div>
+
+                            {formFields.isReturnable === "Yes" && (
+                                <div>
+                                    <h3 className={labelCls}>Return Window</h3>
+                                    <Select
+                                        size="small"
+                                        sx={selectSx}
+                                        value={formFields.returnDays}
+                                        onChange={handleChangeReturnDays}
+                                    >
+                                        <MenuItem value={7}>Returnable within 7 days</MenuItem>
+                                        <MenuItem value={10}>Returnable within 10 days</MenuItem>
+                                        <MenuItem value={15}>Returnable within 15 days</MenuItem>
+                                        <MenuItem value={30}>Returnable within 30 days</MenuItem>
+                                    </Select>
+                                </div>
+                            )}
 
                             {context.userData.role === "ADMIN" && (
                                 <div>

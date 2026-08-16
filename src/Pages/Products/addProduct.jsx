@@ -62,6 +62,8 @@ const AddProduct = () => {
         price: "",
         oldPrice: "",
         category: "",
+        isReturnable: "",
+        returnDays: 7,
         catName: "",
         catId: "",
         subCatId: "",
@@ -176,6 +178,18 @@ const AddProduct = () => {
         }
     };
 
+    const handleChangeReturnable = (event) => {
+    const value = event.target.value;
+    setFormFields(prev => ({
+        ...prev,
+        isReturnable: value,
+        // Reset to the default 7-day window each time it's switched back to Yes
+        returnDays: value === "Yes" ? (prev.returnDays || 7) : ""
+    }));
+};
+const handleChangeReturnDays = (event) => {
+    setFormFields(prev => ({ ...prev, returnDays: event.target.value }));
+};
     const setFssaiImagesFun = (data) => {
         let images = [];
 
@@ -640,6 +654,14 @@ const AddProduct = () => {
             context.alertBox("error", "Please enter product MRP");
             return false;
         }
+        if (formFields?.isReturnable === "") {
+            context.alertBox("error", "Please select whether the product is returnable");
+            return false;
+        }
+        if (formFields?.isReturnable === "Yes" && !formFields?.returnDays) {
+            context.alertBox("error", "Please select a return window");
+            return false;
+        }
         if (formFields?.shipment_days === "") {
             context.alertBox("error", "Please enter Expected Shipment Days");
             return false;
@@ -856,6 +878,37 @@ const AddProduct = () => {
                                 <h3 className={labelCls}>Product PIN Code</h3>
                                 <input type="number" className={inputCls} value={formFields.product_pincode} name="product_pincode" onChange={onChangeInput} placeholder="e.g. 682001" />
                             </div>
+                            <div>
+    <h3 className={labelCls}>Is Product Returnable?</h3>
+    <Select
+        size="small"
+        sx={selectSx}
+        displayEmpty
+        value={formFields.isReturnable}
+        onChange={handleChangeReturnable}
+    >
+        <MenuItem value="" disabled>Select an option</MenuItem>
+        <MenuItem value="Yes">Returnable</MenuItem>
+        <MenuItem value="No">Not Returnable</MenuItem>
+    </Select>
+</div>
+
+{formFields.isReturnable === "Yes" && (
+    <div>
+        <h3 className={labelCls}>Return Window</h3>
+        <Select
+            size="small"
+            sx={selectSx}
+            value={formFields.returnDays}
+            onChange={handleChangeReturnDays}
+        >
+            <MenuItem value={7}>Returnable within 7 days</MenuItem>
+            <MenuItem value={10}>Returnable within 10 days</MenuItem>
+            <MenuItem value={15}>Returnable within 15 days</MenuItem>
+            <MenuItem value={30}>Returnable within 30 days</MenuItem>
+        </Select>
+    </div>
+)}
 
                             {context.userData.role === "ADMIN" && (
                                 <div>

@@ -13,6 +13,7 @@ import { RiUserLine, RiStoreLine, RiShieldCheckLine } from "react-icons/ri";
 
 const baseColumns = [
   { id: "user", label: "User" },
+  { id: "wallet", label: "Wallet Balance" },
   { id: "userPh", label: "Phone" },
   { id: "verifyemail", label: "Email Status" },
   { id: "createdDate", label: "Joined" },
@@ -86,7 +87,7 @@ export const Users = () => {
 
   const columns = React.useMemo(() => {
     if (type === "USER") return baseColumns.filter(col => col.id !== "live");
-    return baseColumns;
+    else return baseColumns.filter(col => col.id !== "wallet");
   }, [type]);
 
   const handleChangeRowsPerPage = (e) => {
@@ -334,12 +335,18 @@ export const Users = () => {
                           <p className="font-bold text-gray-800 text-[13px] leading-tight">{user?.name}</p>
                           <p className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
                             <MdOutlineMarkEmailRead size={12} />
-                            {user?.email?.slice(0, 5)}***{user?.email?.split('@')[1] ? `@${user.email.split('@')[1]}` : ''}
+                            {user?.email}
                           </p>
                         </div>
                       </div>
                     </td>
 
+                    {/* wallet */}
+                    {!isSeller && (<td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600">
+                        {user?.wallet.balance || <span className="text-gray-300 font-normal">0</span>}
+                      </span>
+                    </td>)}
                     {/* Phone */}
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600">

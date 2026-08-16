@@ -187,7 +187,7 @@ const Dashboard = () => {
 
   return (
     <>
-      <div className="w-full py-4 lg:py-1 px-5 border-2 bg-[radial-gradient(ellipse_at_top_left,_#4b1366_0%,_#2a0a3d_40%,_#120016_75%,_#0a0010_100%)] border-[rgba(255,255,255,0.1)] flex items-center gap-8 mb-5 justify-between rounded-xl">
+      <div className="w-full py-4 lg:py-1 px-5 border-2  border-[rgba(255,255,255,0.1)] flex items-center gap-8 mb-5 justify-between rounded-xl">
         <div className="info text-white">
           <h1 className="text-[26px] lg:text-[35px] font-bold leading-8 lg:leading-10 mb-3">
             Welcome,

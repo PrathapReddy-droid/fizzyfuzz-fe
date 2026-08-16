@@ -34,6 +34,7 @@ import TermsConditions from "./Pages/TermsConditions/TermsConditions";
 import PrivacyPolicy from "./Pages/PrivacyPolicy/PrivacyPolicy";
 import VideoPage from "./Pages/VideoPage";
 import LiveComingSoon from "./Pages/LivePage";
+import ProtectedRoute from "./utils/ProtectedRoute";
 
 
 const MyContext = createContext();
@@ -47,7 +48,29 @@ function App() {
   const [sidebarWidth, setSidebarWidth] = useState(18);
   // const navigate = useNavigate()
   const [progress, setProgress] = useState(0);
+const [authChecked, setAuthChecked] = useState(false); // NEW
 
+useEffect(() => {
+  const token = localStorage.getItem('accessToken');
+
+  if (token) {
+    fetchDataFromApi(`/api/user/user-details`).then((res) => {
+      if (res?.response?.data?.message === "You have not login") {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        setIsLogin(false);
+        alertBox("error", "Your session is closed please login again");
+      } else {
+        setUserData(res.data);
+        setIsLogin(true);
+      }
+      setAuthChecked(true); // NEW: only mark "checked" once the API call resolves
+    });
+  } else {
+    setIsLogin(false);
+    setAuthChecked(true); // NEW
+  }
+}, []); // run once, not on every isLogin change
 
   const [isOpenFullScreenPanel, setIsOpenFullScreenPanel] = useState({
     open: false,
@@ -177,7 +200,7 @@ function App() {
         <Route path="/terms-conditions" element={<TermsConditions />} />
         <Route path="/privacy-policies" element={<PrivacyPolicy />} />
         {/* Admin Routes */}
-        <Route element={<AdminLayout />}>
+        <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/pending" element={<PendingProducts />} />
