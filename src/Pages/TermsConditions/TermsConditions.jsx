@@ -106,7 +106,7 @@ const SECTIONS = [
     icon: <Scale size={16} color="#fcd34d" />,
     title: "11. Governing Law & Dispute Resolution",
     content: [
-      "These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of courts in Bengaluru, Karnataka.",
+      "These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of courts in Chennai, Tamilnadu.",
       "FizzyFuzz encourages parties to resolve disputes amicably. In the event of a dispute, the aggrieved party must first raise the matter through FizzyFuzz's internal grievance redressal mechanism.",
       "If a dispute cannot be resolved internally within 30 days, it shall be referred to binding arbitration under the Arbitration and Conciliation Act, 1996.",
     ]

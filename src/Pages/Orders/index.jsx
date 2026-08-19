@@ -279,15 +279,22 @@ export const Orders = () => {
                           labelId="demo-simple-select-helper-label"
                           id="demo-simple-select-helper"
                           value={order?.order_status !== null ? order?.order_status : orderStatus}
-                          label="Status"
+                          label="Status" 
                           size="small"
                           className="w-full"
                           sx={selectSx(status)}
                           onChange={(e) => handleChange(e, order?._id)}
                         >
-                          <MenuItem value={'pending'}>Pending</MenuItem>
-                          <MenuItem value={'confirm'}>Confirm</MenuItem>
-                          <MenuItem value={'delivered'}>Delivered</MenuItem>
+                            <MenuItem value={'PENDING'}>Pending</MenuItem>
+                            <MenuItem value={'CONFIRMED'}>Confirmed</MenuItem>
+                            <MenuItem value={'PROCESSING'}>Processing</MenuItem>
+                            <MenuItem value={'SHIPPED'}>Shipped</MenuItem>
+                            <MenuItem value={'IN-TRANSIT'}>In Transit</MenuItem>
+                            <MenuItem value={'OUT-FOR-DELIVERY'}>Out for Delivery</MenuItem>
+                            <MenuItem value={'DELIVERED'}>Delivered</MenuItem>
+                            <MenuItem value={'CANCELLED'}>Cancelled</MenuItem>
+                            <MenuItem value={'RETURNED'}>Returned</MenuItem>
+                            <MenuItem value={'REFUNDED'}>Refunded</MenuItem>
                         </Select>
                       </td>
                       <td className="px-6 py-4 font-[500] whitespace-nowrap border-b border-[#F1F1F7] text-[13px] text-[#8A8AA3]">

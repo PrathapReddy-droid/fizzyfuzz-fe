@@ -35,6 +35,7 @@ import PrivacyPolicy from "./Pages/PrivacyPolicy/PrivacyPolicy";
 import VideoPage from "./Pages/VideoPage";
 import LiveComingSoon from "./Pages/LivePage";
 import ProtectedRoute from "./utils/ProtectedRoute";
+import OfferTimings from "./Pages/OfferTimings";
 
 
 const MyContext = createContext();
@@ -211,6 +212,7 @@ useEffect(() => {
           <Route path="/product/addSize" element={<AddSize />} />
 
           <Route path="/homeSlider/list" element={<HomeSliderBanners />} />
+          <Route path="/homeSlider/offer" element={<OfferTimings />} />
           <Route path="/category/list" element={<CategoryList />} />
           <Route path="/subCategory/list" element={<SubCategoryList />} />
           <Route path="/terms-and-conditions" element={<TermsConditions />} />

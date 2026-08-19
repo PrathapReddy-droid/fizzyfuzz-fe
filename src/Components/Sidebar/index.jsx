@@ -64,7 +64,7 @@ const Sidebar = () => {
         .sb-shell {
           position: fixed; top: 0; left: 0; z-index: 52;
           height: 100vh;
-          background: radial-gradient(ellipse at top left, #2d1060 0%, #1a0840 40%, #0f0519 75%, #0a0010 100%);
+          background: radial-gradient(ellipse at top left, #2d1060 0%, #1a0840 40%, #0f0519 75%, #020610 100%);
           border-right: 1px solid rgba(255,255,255,0.07);
           display: flex; flex-direction: column;
           transition: width 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
@@ -239,6 +239,9 @@ const Sidebar = () => {
                 <div className="sb-submenu">
                   <Link to="/homeSlider/list" className={`sb-subitem ${isActive('/homeSlider/list') ? 'active' : ''}`} onClick={handleNavClick}>
                     Banner List
+                  </Link>
+                  <Link to="/homeSlider/offer" className={`sb-subitem ${isActive('/homeSlider/offer') ? 'active' : ''}`} onClick={handleNavClick}>
+                    Offer Expiry
                   </Link>
                   <button className="sb-subitem" onClick={() => { context.setIsOpenFullScreenPanel({ open: true, model: 'Add Home Slide' }); handleNavClick(); }}>
                     Add Banner

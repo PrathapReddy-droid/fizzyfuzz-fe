@@ -79,7 +79,7 @@ const AddHomeSlide = () => {
         }
 
     return (
-        <section className='p-5 bg-gray-50 bg-[radial-gradient(ellipse_at_top_left,_#4b1366_0%,_#2a0a3d_40%,_#120016_75%,_#0a0010_100%)]  h-full'>
+        <section className='p-5 bg-gray-50 bg-[radial-gradient(ellipse_at_top_left,_#0f3d7a_0%,_#0a1f4d_40%,_#050e26_75%,_#020610_100%)]  h-full'>
             <form className='form py-1 p-1 md:p-8 md:py-1'  onSubmit={handleSubmit}>
                 <div className='scroll max-h-[72vh] overflow-y-scroll pr-4 pt-4'>
                     <div className="grid grid-cols-2 md:grid-cols-7 gap-4">

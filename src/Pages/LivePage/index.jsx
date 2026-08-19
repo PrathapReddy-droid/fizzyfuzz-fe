@@ -6,7 +6,7 @@ const LiveComingSoon = () => {
     const context = useContext(MyContext)
     let isEnabled = context.userData?.isLiveEnabled
   return (
-    <div className="min-h-[85vh] flex items-center justify-center  bg-[radial-gradient(ellipse_at_top_left,_#4b1366_0%,_#2a0a3d_40%,_#120016_75%,_#0a0010_100%)] px-4 rounded-lg">
+    <div className="min-h-[85vh] flex items-center justify-center  bg-[radial-gradient(ellipse_at_top_left,_#0f3d7a_0%,_#0a1f4d_40%,_#050e26_75%,_#020610_100%)] px-4 rounded-lg">
       {isEnabled?<div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center">
         
         {/* Icon */}
@@ -43,7 +43,7 @@ const LiveComingSoon = () => {
         </p>
       </div>:<div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl max-w-lg w-full px-4 py-8 text-center">
   {/* Icon */}
-  <div className="w-20 h-20 mx-auto mb-6 rounded-full  bg-[radial-gradient(ellipse_at_top_left,_#4b1366_0%,_#2a0a3d_40%,_#120016_75%,_#0a0010_100%)] flex items-center justify-center shadow-lg">
+  <div className="w-20 h-20 mx-auto mb-6 rounded-full  bg-[radial-gradient(ellipse_at_top_left,_#0f3d7a_0%,_#0a1f4d_40%,_#050e26_75%,_#020610_100%)] flex items-center justify-center shadow-lg">
     <IoCallOutline className="text-white text-4xl" />
   </div>
 

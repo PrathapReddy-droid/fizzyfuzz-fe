@@ -107,7 +107,7 @@ const Header = () => {
   return (
     <>
       <header
-        className={`w-full h-[auto] bg-[radial-gradient(ellipse_at_top_left,_#4b1366_0%,_#2a0a3d_40%,_#120016_75%,_#0a0010_100%)] py-2 ${context.isSidebarOpen === true ? "pl-[22%]" : "pl-5"
+        className={`w-full h-[auto] bg-[radial-gradient(ellipse_at_top_left,_#0f3d7a_0%,_#0a1f4d_40%,_#050e26_75%,_#020610_100%)] py-2 ${context.isSidebarOpen === true ? "pl-[22%]" : "pl-5"
           } ${context.isSidebarOpen === true && context?.windowWidth < 992 && '!pl-80'} shadow-lg  pr-7   flex items-center justify-between transition-all fixed top-0 left-0 z-[50]`}
       >
         <div className="part1 flex items-center gap-4">

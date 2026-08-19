@@ -6,6 +6,9 @@ const VideoTable = ({ refresh }) => {
   const [videos, setVideos] = useState([]);
   const [page, setPage] = useState(1);
   const [isLoading, setLoading] = useState(false);
+  // Separate loading flag for delete so Enable/Disable and Delete never
+  // show a spinner on the wrong button for the same row.
+  const [deleteLoadingId, setDeleteLoadingId] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const context = useContext(MyContext);
 
@@ -40,6 +43,31 @@ const VideoTable = ({ refresh }) => {
       setLoading(false);
     }
     return null;
+  };
+
+  // Mirrors enableVideo's shape: same postData call pattern, same
+  // fetch-after-write refresh — just a different endpoint and an
+  // immediate local removal so the row disappears without waiting
+  // on the refetch to land.
+  const deleteVideo = async (video) => {
+    if (context?.userData?.role !== "ADMIN") return null;
+
+    const confirmed = window.confirm(`Delete "${video.title}"? This can't be undone.`);
+    if (!confirmed) return null;
+
+    setDeleteLoadingId(video._id);
+    try {
+      await postData(`/api/product/deleteVideo`, { id: video._id });
+
+      // Remove immediately from the frontend so the table updates without
+      // waiting for the refetch — then reconcile with the server via fetchVideos.
+      setVideos((prev) => prev.filter((v) => v._id !== video._id));
+      await fetchVideos(page);
+    } catch (error) {
+      console.error("Failed to delete video", error);
+    } finally {
+      setDeleteLoadingId(false);
+    }
   };
 
   useEffect(() => {
@@ -225,6 +253,12 @@ const VideoTable = ({ refresh }) => {
 
         .vt-badge-inactive::before { background: var(--red); }
 
+        .vt-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .vt-btn {
           font-family: 'Outfit', sans-serif;
           font-size: 12px;
@@ -265,6 +299,20 @@ const VideoTable = ({ refresh }) => {
           background: rgba(248, 113, 113, 0.22);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(248,113,113,0.15);
+        }
+
+        .vt-btn-delete {
+          background: var(--surface-3);
+          color: var(--text-dim);
+          border: 1px solid var(--line);
+        }
+
+        .vt-btn-delete:hover:not(:disabled) {
+          background: rgba(248, 113, 113, 0.16);
+          color: var(--red);
+          border-color: rgba(248, 113, 113, 0.35);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(248,113,113,0.12);
         }
 
         .vt-btn-loading {
@@ -451,18 +499,35 @@ const VideoTable = ({ refresh }) => {
                     </td>
                     {isAdmin && (
                       <td className="vt-td">
-                        {isLoading === video._id ? (
-                          <button className="vt-btn vt-btn-loading" disabled>
-                            <span className="vt-spinner" /> Processing
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => enableVideo({ id: video._id, isApporved: !video.is_active })}
-                            className={`vt-btn ${video.is_active ? "vt-btn-disable" : "vt-btn-enable"}`}
-                          >
-                            {video.is_active ? "Disable" : "Enable"}
-                          </button>
-                        )}
+                        <div className="vt-actions">
+                          {isLoading === video._id ? (
+                            <button className="vt-btn vt-btn-loading" disabled>
+                              <span className="vt-spinner" /> Processing
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => enableVideo({ id: video._id, isApporved: !video.is_active })}
+                              className={`vt-btn ${video.is_active ? "vt-btn-disable" : "vt-btn-enable"}`}
+                              disabled={deleteLoadingId === video._id}
+                            >
+                              {video.is_active ? "Disable" : "Enable"}
+                            </button>
+                          )}
+
+                          {deleteLoadingId === video._id ? (
+                            <button className="vt-btn vt-btn-loading" disabled>
+                              <span className="vt-spinner" /> Deleting
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => deleteVideo(video)}
+                              className="vt-btn vt-btn-delete"
+                              disabled={isLoading === video._id}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
