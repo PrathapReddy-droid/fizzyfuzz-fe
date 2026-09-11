@@ -12,13 +12,20 @@ import TableRow from "@mui/material/TableRow";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Checkbox from "@mui/material/Checkbox";
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { Link } from "react-router-dom";
 import Progress from "../../Components/ProgressBar";
 import { AiOutlineEdit } from "react-icons/ai";
 import { FaRegEye } from "react-icons/fa6";
 import { GoTrash } from "react-icons/go";
 import { HiOutlineCheck, HiOutlineX } from "react-icons/hi";
-import { HiOutlineClock, HiOutlineCheckCircle } from "react-icons/hi2";
+import { HiOutlineClock, HiOutlineCheckCircle, HiOutlineXCircle } from "react-icons/hi2";
+import { MdBrandingWatermark, MdLocalShipping, MdLocationOn, MdPerson, MdAssignmentReturn, MdVerified } from "react-icons/md";
+import { BiSolidCategoryAlt } from "react-icons/bi";
+import { BsBoxSeam, BsShieldCheck } from "react-icons/bs";
 import SearchBox from '../../Components/SearchBox';
 import { MyContext } from '../../App';
 import { fetchDataFromApi, deleteData, deleteMultipleData, postData } from '../../utils/api';
@@ -55,7 +62,7 @@ const columns = [
     {
         id: "action",
         label: "ACTION",
-        minWidth: 120,
+        minWidth: 165,
     },
 ];
 
@@ -75,6 +82,32 @@ const selectSx = {
         borderWidth: "1.5px",
     },
 };
+
+// Status pill styling for the "view details" modal (mirrors Products.jsx).
+const STATUS_STYLES = {
+    APPROVED: {
+        classes: "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200",
+        icon: <HiOutlineCheckCircle className="text-[14px]" />,
+    },
+    PENDING: {
+        classes: "bg-amber-50 text-amber-600 ring-1 ring-amber-200",
+        icon: <HiOutlineClock className="text-[14px]" />,
+    },
+    REJECTED: {
+        classes: "bg-red-50 text-red-500 ring-1 ring-red-200",
+        icon: <HiOutlineXCircle className="text-[14px]" />,
+    },
+};
+
+const MetaItem = ({ icon, label, value }) => (
+    <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5">
+        <span className="text-gray-400 text-[16px] shrink-0">{icon}</span>
+        <div className="min-w-0">
+            <p className="text-[11px] text-gray-400 leading-none mb-1">{label}</p>
+            <p className="text-[13.5px] font-semibold text-gray-800 truncate leading-none">{value ?? "—"}</p>
+        </div>
+    </div>
+);
 
 
 
@@ -97,6 +130,12 @@ export const PendingProducts = () => {
 
     const [photos, setPhotos] = useState([]);
     const [open, setOpen] = useState(false);
+
+    // "View product details" modal — fetched fresh by id when opened, so it
+    // always reflects the full record rather than just what's in the row.
+    const [viewOpen, setViewOpen] = useState(false);
+    const [viewLoading, setViewLoading] = useState(false);
+    const [viewProduct, setViewProduct] = useState(null);
 
     const context = useContext(MyContext);
 
@@ -123,6 +162,35 @@ export const PendingProducts = () => {
             console.error('Error:', error.message);
         }
         };
+
+    // Opens the modal and fetches the single product's full record by id —
+    // the same endpoint the Product Details page uses — so images, FSSAI
+    // details, seller info etc. are all available even if the pending-list
+    // response is trimmed down.
+    const openProductView = (id) => {
+        setViewOpen(true);
+        setViewLoading(true);
+        setViewProduct(null);
+        fetchDataFromApi(`/api/product/${id}`).then((res) => {
+            if (res?.error === false) {
+                setViewProduct(res?.product);
+            }
+            setViewLoading(false);
+        });
+    };
+
+    const closeProductView = () => {
+        setViewOpen(false);
+        setViewProduct(null);
+    };
+
+    // Approve/Reject straight from the modal, reusing the same handler the
+    // row buttons use, then close and let it refresh the list as usual.
+    const handleActionFromModal = (status) => {
+        if (!viewProduct) return;
+        handleAction(status, viewProduct);
+        closeProductView();
+    };
 
     useEffect(() => {
         // Filter orders based on search query
@@ -373,6 +441,19 @@ export const PendingProducts = () => {
         setPage(newPage);
     };
 
+    // Derived display values for the "view details" modal.
+    const categoryPath = [viewProduct?.catName, viewProduct?.subCat, viewProduct?.thirdsubCat]
+        .filter(Boolean)
+        .join(" › ");
+    const returnPolicyText = viewProduct?.isReturnable === "Yes"
+        ? `${viewProduct?.returnDays || "-"} day return`
+        : viewProduct?.isReturnable === "No"
+            ? "Not returnable"
+            : "—";
+    // Backend has been seen returning this as both "fssaiimages" and
+    // "fssaiImages" — check both so uploaded documents show up either way.
+    const fssaiImages = (viewProduct?.fssaiimages?.length ? viewProduct.fssaiimages : viewProduct?.fssaiImages) || [];
+
     return (
         <>
             {/* Soft ambient backdrop: two low-opacity radial blooms over a
@@ -597,7 +678,7 @@ export const PendingProducts = () => {
                                             </TableCell>
                                             <TableCell style={{ minWidth: columns.minWidth }}>
                                                 <div className="flex items-center gap-4 w-[300px]" title={product?.name}>
-                                                    <div className="img w-[65px] h-[65px] rounded-xl overflow-hidden group cursor-pointer ring-1 ring-[#ECECF5] shadow-sm" onClick={() => setOpen(true)}>
+                                                    <div className="img w-[65px] h-[65px] rounded-xl overflow-hidden group cursor-pointer ring-1 ring-[#ECECF5] shadow-sm" onClick={() => openProductView(product._id)}>
                                                         <LazyLoadImage
                                                             alt={"image"}
                                                             effect="blur"
@@ -664,20 +745,47 @@ export const PendingProducts = () => {
 
 
                                             <TableCell align="center">
-                                                <div className="flex gap-2 justify-center">
+                                                <div className="flex gap-1 justify-center items-center flex-nowrap">
                                                     <Button
-                                                        variant="contained"
-                                                        size="small"
-                                                        disableElevation
-                                                        onClick={() => handleAction('APPROVED', product)}
-                                                        startIcon={<HiOutlineCheck />}
+                                                        variant="outlined"
+                                                        onClick={() => openProductView(product._id)}
+                                                        startIcon={<FaRegEye style={{ fontSize: 12 }} />}
                                                         sx={{
                                                             textTransform: "none",
                                                             borderRadius: "999px",
                                                             fontWeight: 600,
-                                                            fontSize: "12.5px",
+                                                            fontSize: "10.5px",
+                                                            lineHeight: 1.4,
+                                                            minWidth: 0,
+                                                            px: 1,
+                                                            py: 0.25,
+                                                            color: "#4B4B63",
+                                                            borderColor: "#E4E7F2",
+                                                            backgroundColor: "#F7F7FC",
+                                                            "& .MuiButton-startIcon": { marginRight: "3px" },
+                                                            "&:hover": { backgroundColor: "#EFEFFB", borderColor: "#DCDCF2" },
+                                                        }}
+                                                    >
+                                                        View
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="contained"
+                                                        disableElevation
+                                                        onClick={() => handleAction('APPROVED', product)}
+                                                        startIcon={<HiOutlineCheck style={{ fontSize: 12 }} />}
+                                                        sx={{
+                                                            textTransform: "none",
+                                                            borderRadius: "999px",
+                                                            fontWeight: 600,
+                                                            fontSize: "10.5px",
+                                                            lineHeight: 1.4,
+                                                            minWidth: 0,
+                                                            px: 1,
+                                                            py: 0.25,
                                                             backgroundColor: "#1FAE6D",
                                                             boxShadow: "0 1px 2px rgba(31,174,109,0.25)",
+                                                            "& .MuiButton-startIcon": { marginRight: "3px" },
                                                             "&:hover": { backgroundColor: "#189259" },
                                                         }}
                                                     >
@@ -686,17 +794,21 @@ export const PendingProducts = () => {
 
                                                     <Button
                                                         variant="outlined"
-                                                        size="small"
                                                         onClick={() => handleAction('REJECTED', product)}
-                                                        startIcon={<HiOutlineX />}
+                                                        startIcon={<HiOutlineX style={{ fontSize: 12 }} />}
                                                         sx={{
                                                             textTransform: "none",
                                                             borderRadius: "999px",
                                                             fontWeight: 600,
-                                                            fontSize: "12.5px",
+                                                            fontSize: "10.5px",
+                                                            lineHeight: 1.4,
+                                                            minWidth: 0,
+                                                            px: 1,
+                                                            py: 0.25,
                                                             color: "#E1493F",
                                                             borderColor: "#F5D3D0",
                                                             backgroundColor: "#FEF6F5",
+                                                            "& .MuiButton-startIcon": { marginRight: "3px" },
                                                             "&:hover": { backgroundColor: "#FCE9E7", borderColor: "#E1493F" },
                                                         }}
                                                     >
@@ -765,6 +877,201 @@ export const PendingProducts = () => {
                 close={() => setOpen(false)}
                 slides={photos}
             />
+
+            {/* Full product details modal — opened via the row's image or its
+               View button. Fetches fresh by id and lets the reviewer
+               Approve/Reject right from here. */}
+            <Dialog
+                open={viewOpen}
+                onClose={closeProductView}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: "16px" } }}
+            >
+                <DialogTitle sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 }}>
+                    <div>
+                        <p className="text-[17px] font-[700] text-[#1E1B3A] leading-snug">
+                            {viewProduct?.name || (viewLoading ? "Loading…" : "Product details")}
+                        </p>
+                        {viewProduct?.status && (
+                            <span className={`inline-flex items-center gap-1.5 rounded-full text-[11px] font-[600] px-2.5 py-1 mt-1.5 ${STATUS_STYLES[viewProduct.status]?.classes || "bg-gray-50 text-gray-600 ring-1 ring-gray-200"}`}>
+                                {STATUS_STYLES[viewProduct.status]?.icon}
+                                {viewProduct.status}
+                            </span>
+                        )}
+                    </div>
+                </DialogTitle>
+
+                <DialogContent dividers>
+                    {viewLoading ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-16">
+                            <CircularProgress size={28} sx={{ color: "#6C63FF" }} />
+                            <span className="text-[13px] text-[#8A8AA3]">Loading product details…</span>
+                        </div>
+                    ) : viewProduct ? (
+                        <div className="space-y-5">
+                            {/* Images */}
+                            {viewProduct?.images?.length > 0 && (
+                                <div className="flex gap-3 overflow-x-auto pb-1">
+                                    {viewProduct.images.map((img, i) => (
+                                        <div key={i} className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shrink-0">
+                                            <img src={img} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Rating + Price */}
+                            <div>
+                                <Rating value={viewProduct?.rating || 0} readOnly size="small" />
+                                <div className="flex items-end gap-3 mt-2">
+                                    <span className="text-[22px] font-bold text-green-600 leading-none">
+                                        ₹{viewProduct?.price}
+                                    </span>
+                                    {viewProduct?.oldPrice && (
+                                        <span className="text-[14px] line-through text-gray-400 leading-none mb-0.5">
+                                            ₹{viewProduct?.oldPrice}
+                                        </span>
+                                    )}
+                                    {viewProduct?.discount > 0 && (
+                                        <span className="text-[11.5px] font-semibold bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-md leading-none">
+                                            {viewProduct.discount}% OFF
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Meta grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <MetaItem icon={<MdBrandingWatermark />} label="Brand" value={viewProduct?.brand} />
+                                <MetaItem icon={<BiSolidCategoryAlt />} label="Category" value={categoryPath} />
+                                <MetaItem icon={<BsBoxSeam />} label="Stock" value={viewProduct?.countInStock} />
+                                <MetaItem icon={<MdPerson />} label="Seller" value={viewProduct?.seller_name} />
+                                <MetaItem
+                                    icon={<MdLocalShipping />}
+                                    label="Shipment"
+                                    value={viewProduct?.shipment_days ? `${viewProduct.shipment_days} days` : "—"}
+                                />
+                                <MetaItem icon={<MdLocationOn />} label="Pincode" value={viewProduct?.product_pincode} />
+                                <MetaItem icon={<MdAssignmentReturn />} label="Return Policy" value={returnPolicyText} />
+                            </div>
+
+                            {/* Variants */}
+                            {viewProduct?.variants && Object.values(viewProduct.variants).some(v => v?.length > 0) && (
+                                <div className="space-y-3">
+                                    {Object.entries(viewProduct.variants).map(([key, values]) =>
+                                        values?.length > 0 && (
+                                            <div key={key}>
+                                                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{key}</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {values.map((v, i) => (
+                                                        <span key={i} className="px-2.5 py-1 border border-gray-200 rounded-full text-[12px] text-gray-700 bg-white">
+                                                            {v}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Description */}
+                            {viewProduct?.description && (
+                                <div>
+                                    <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Description</p>
+                                    <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line">{viewProduct.description}</p>
+                                </div>
+                            )}
+
+                            {/* FSSAI compliance — only shown when a license number is present */}
+                            {viewProduct?.fssaiLicenseNumber && (
+                                <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/50">
+                                    <p className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                        <BsShieldCheck className="text-green-600" />
+                                        FSSAI Compliance
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                        <MetaItem icon={<MdVerified />} label="License Number" value={viewProduct.fssaiLicenseNumber} />
+                                        {viewProduct?.fssaiCompliant && (
+                                            <MetaItem icon={<BsShieldCheck />} label="Packaging Compliant" value={viewProduct.fssaiCompliant} />
+                                        )}
+                                    </div>
+                                    {fssaiImages.length > 0 && (
+                                        <div className="flex gap-2 flex-wrap">
+                                            {fssaiImages.map((img, i) => (
+                                                <a key={i} href={img} target="_blank" rel="noreferrer" className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-white block">
+                                                    <img src={img} className="w-full h-full object-cover" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {viewProduct?.declarationStatus && (
+                                        <p className="text-[12px] text-gray-500 mt-2">
+                                            Declaration:{" "}
+                                            <span className={`font-semibold ${viewProduct.declarationStatus === "Accept" ? "text-green-600" : "text-red-600"}`}>
+                                                {viewProduct.declarationStatus}
+                                            </span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-[13px] text-gray-500 py-10 text-center">Couldn't load product details.</p>
+                    )}
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, py: 2 }}>
+                    <Button
+                        onClick={closeProductView}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "999px",
+                            fontWeight: 600,
+                            fontSize: "12.5px",
+                            color: "#4B4B63",
+                        }}
+                    >
+                        Close
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        onClick={() => handleActionFromModal('REJECTED')}
+                        startIcon={<HiOutlineX />}
+                        disabled={!viewProduct}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "999px",
+                            fontWeight: 600,
+                            fontSize: "12.5px",
+                            color: "#E1493F",
+                            borderColor: "#F5D3D0",
+                            backgroundColor: "#FEF6F5",
+                            "&:hover": { backgroundColor: "#FCE9E7", borderColor: "#E1493F" },
+                        }}
+                    >
+                        Reject
+                    </Button>
+                    <Button
+                        variant="contained"
+                        disableElevation
+                        onClick={() => handleActionFromModal('APPROVED')}
+                        startIcon={<HiOutlineCheck />}
+                        disabled={!viewProduct}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: "999px",
+                            fontWeight: 600,
+                            fontSize: "12.5px",
+                            backgroundColor: "#1FAE6D",
+                            "&:hover": { backgroundColor: "#189259" },
+                        }}
+                    >
+                        Approve
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             </div>
         </>

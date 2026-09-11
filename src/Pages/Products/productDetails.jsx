@@ -7,11 +7,17 @@ import "swiper/css/navigation";
 import { Navigation } from "swiper/modules";
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchDataFromApi } from '../../utils/api';
-import { MdBrandingWatermark, MdFilterVintage } from "react-icons/md";
+import { MdBrandingWatermark, MdLocalShipping, MdLocationOn, MdPerson, MdAssignmentReturn, MdVerified } from "react-icons/md";
 import { BiSolidCategoryAlt } from "react-icons/bi";
-import { BsBoxSeam, BsArrowLeft } from "react-icons/bs";
-import { HiOutlineSparkles } from "react-icons/hi2";
+import { BsBoxSeam, BsArrowLeft, BsShieldCheck } from "react-icons/bs";
 import Rating from '@mui/material/Rating';
+
+// Colors for the approval-status pill shown next to the product name.
+const STATUS_STYLES = {
+    PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+    APPROVED: "bg-green-50 text-green-700 border-green-200",
+    REJECTED: "bg-red-50 text-red-700 border-red-200",
+};
 
 const ProductDetails = () => {
 
@@ -84,6 +90,22 @@ const ProductDetails = () => {
         )
     );
 
+    // Full category breadcrumb from whichever levels are actually set.
+    const categoryPath = [product?.catName, product?.subCat, product?.thirdsubCat]
+        .filter(Boolean)
+        .join(" › ");
+
+    const returnPolicyText = product?.isReturnable === "Yes"
+        ? `${product?.returnDays || "-"} day return`
+        : product?.isReturnable === "No"
+            ? "Not returnable"
+            : "—";
+
+    // Backend has returned this field as both "fssaiimages" and (per the forms)
+    // "fssaiImages" at different points — check both so uploaded documents show
+    // up regardless of which key the API is actually persisting under.
+    const fssaiImages = (product?.fssaiimages?.length ? product.fssaiimages : product?.fssaiImages) || [];
+
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
             {/* Back button */}
@@ -138,7 +160,25 @@ const ProductDetails = () => {
                 <div className="space-y-5">
 
                     <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
-                        <h1 className="text-[22px] font-bold text-gray-900 leading-snug">{product?.name}</h1>
+                        <div className="flex items-start justify-between gap-3">
+                            <h1 className="text-[22px] font-bold text-gray-900 leading-snug">{product?.name}</h1>
+                        </div>
+
+                        {/* Approval status / featured pills */}
+                        {(product?.status || product?.isFeatured) && (
+                            <div className="flex items-center gap-2 mt-2">
+                                {product?.status && (
+                                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${STATUS_STYLES[product.status] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                                        {product.status}
+                                    </span>
+                                )}
+                                {product?.isFeatured && (
+                                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 whitespace-nowrap">
+                                        Featured
+                                    </span>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-2.5 mt-2.5">
                             <Rating value={product?.rating || 0} readOnly size="small" />
@@ -166,15 +206,18 @@ const ProductDetails = () => {
                         </div>
 
                         {/* Meta grid */}
-                        <div className="grid grid-cols-2 gap-3 mt-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
                             <MetaItem icon={<MdBrandingWatermark />} label="Brand" value={product?.brand} />
-                            <MetaItem icon={<BiSolidCategoryAlt />} label="Category" value={product?.catName} />
+                            <MetaItem icon={<BiSolidCategoryAlt />} label="Category" value={categoryPath} />
                             <MetaItem icon={<BsBoxSeam />} label="Stock" value={product?.countInStock} />
+                            <MetaItem icon={<MdPerson />} label="Seller" value={product?.seller_name} />
                             <MetaItem
-                                icon={product?.sale ? <HiOutlineSparkles /> : <MdFilterVintage />}
-                                label="Status"
-                                value={product?.sale ? "On Sale" : "Regular"}
+                                icon={<MdLocalShipping />}
+                                label="Shipment"
+                                value={product?.shipment_days ? `${product.shipment_days} days` : "—"}
                             />
+                            <MetaItem icon={<MdLocationOn />} label="Pincode" value={product?.product_pincode} />
+                            <MetaItem icon={<MdAssignmentReturn />} label="Return Policy" value={returnPolicyText} />
                         </div>
                     </div>
 
@@ -196,6 +239,53 @@ const ProductDetails = () => {
                             {product?.description}
                         </p>
                     </div>
+
+                    {/* FSSAI compliance — only shown once a license number has actually been recorded */}
+                    {product?.fssaiLicenseNumber && (
+                        <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 p-6">
+                            <h2 className="text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <BsShieldCheck className="text-green-600" />
+                                FSSAI Compliance
+                            </h2>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                <MetaItem icon={<MdVerified />} label="License Number" value={product.fssaiLicenseNumber} />
+                                {product?.fssaiCompliant && (
+                                    <MetaItem icon={<BsShieldCheck />} label="Packaging Compliant" value={product.fssaiCompliant} />
+                                )}
+                            </div>
+
+                            {fssaiImages.length > 0 && (
+                                <div className="mb-4">
+                                    <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                        License / Packaging Document
+                                    </p>
+                                    <div className="flex gap-3 flex-wrap">
+                                        {fssaiImages.map((img, i) => (
+                                            <a
+                                                key={i}
+                                                href={img}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center hover:border-indigo-300 transition-colors"
+                                            >
+                                                <img src={img} className="w-full h-full object-cover" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {product?.declarationStatus && (
+                                <p className="text-[12.5px] text-gray-500">
+                                    Declaration:{" "}
+                                    <span className={`font-semibold ${product.declarationStatus === "Accept" ? "text-green-600" : "text-red-600"}`}>
+                                        {product.declarationStatus}
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Reviews — kept commented, ready to enable */}
                     {/*

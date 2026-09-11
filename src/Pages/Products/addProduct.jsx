@@ -122,10 +122,6 @@ const AddProduct = () => {
     const [calcRatesLoading, setCalcRatesLoading] = useState(false);
     const [calcResult, setCalcResult] = useState(null);
 
-    // Product is treated as "food" whenever the selected category name mentions it —
-    // this is what gates the FSSAI declaration block below.
-    const isFoodCategory = productCatName?.toLowerCase().includes('food');
-
     const handleVideoSelect = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -281,6 +277,10 @@ const handleChangeReturnDays = (event) => {
     const selectedCatObject = context?.catData?.find(cat => cat?._id === productCat);
     const selectedSubCatObject = selectedCatObject?.children?.find(subCat => subCat?._id === productSubCat);
 
+    // FSSAI is only required when the selected category itself is flagged for it —
+    // context.catData[].isFssaiRequired === true — never inferred from the category name.
+    const isFssaiRequired = !!selectedCatObject?.isFssaiRequired;
+
     useEffect(() => {
         fetchDataFromApi("/api/product/productRAMS/get").then(res => {
             if (!res?.error) {
@@ -425,6 +425,7 @@ const handleChangeReturnDays = (event) => {
         const catId = event.target.value;
         const catObj = context?.catData?.find(cat => cat?._id === catId);
         const catName = catObj?.name || '';
+        const fssaiRequired = !!catObj?.isFssaiRequired;
 
         setProductCat(catId);
         setProductCatName(catName);
@@ -432,6 +433,12 @@ const handleChangeReturnDays = (event) => {
         // since sub category / third level options depend entirely on it.
         setProductSubCat('');
         setProductThirdLavelCat('');
+
+        // Clear any FSSAI image previews whenever the new category doesn't
+        // require FSSAI, so a stale upload never rides along with it.
+        if (!fssaiRequired) {
+            setFssaiImagePreviews([]);
+        }
 
         setFormFields(prev => ({
             ...prev,
@@ -443,12 +450,14 @@ const handleChangeReturnDays = (event) => {
             subCat: "",
             thirdsubCatId: "",
             thirdsubCat: "",
-            // Reset FSSAI answers whenever the category changes away from food
-            // so a stale answer never gets submitted for a non-food product.
-            ...(catName.toLowerCase().includes('food') ? {} : {
+            // Reset FSSAI answers/uploads whenever the new category doesn't require
+            // FSSAI (catObj.isFssaiRequired !== true), so a stale answer or upload
+            // never gets submitted against it.
+            ...(fssaiRequired ? {} : {
                 fssaiCompliant: "",
                 fssaiLicenseNumber: "",
                 declarationStatus: "",
+                fssaiImages: [],
             })
         }));
     };
@@ -686,13 +695,14 @@ const handleChangeReturnDays = (event) => {
             context.alertBox("error", "Please enter  product rating");
             return false;
         }
-        if (formFields?.fssaiImages.length === 0) {
-            context.alertBox("error", "Please upload your FSSAI license/packaging document");
-            return false;
-        }
 
-        // FSSAI checks only apply to products under a Food category
-        if (isFoodCategory) {
+        // FSSAI checks only apply when the selected category has isFssaiRequired
+        // set to true (context.catData[].isFssaiRequired) — everything else skips this block.
+        if (isFssaiRequired) {
+            if (formFields?.fssaiImages.length === 0) {
+                context.alertBox("error", "Please upload your FSSAI license/packaging document");
+                return false;
+            }
             if (formFields?.fssaiCompliant === "") {
                 context.alertBox("error", "Please answer the packaging compliance question");
                 return false;
@@ -738,7 +748,7 @@ const handleChangeReturnDays = (event) => {
         })
     }
 
-    const canPublish = !isFoodCategory || formFields.declarationStatus === "Accept";
+    const canPublish = !isFssaiRequired || formFields.declarationStatus === "Accept";
 
     return (
         <section className="bg-white">
@@ -1244,12 +1254,13 @@ const handleChangeReturnDays = (event) => {
                         <input type="text" className={inputCls} name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} placeholder="Optional headline for the home banner" />
                     </SectionCard>
 
-                    {/* FSSAI Compliance Declaration — only relevant for products under a Food category */}
-                    {isFoodCategory && (
+                    {/* FSSAI Compliance Declaration — only relevant when the selected category
+                        has isFssaiRequired === true in catData */}
+                    {isFssaiRequired && (
                         <SectionCard
                             title="FSSAI compliance declaration"
                             subtitle="Confirm your product packaging and license details before publishing."
-                            tag="Required for food products"
+                            tag="Required for this category"
                             className={
                                 formFields.declarationStatus === "Accept"
                                     ? "!border-green-200"

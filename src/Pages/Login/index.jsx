@@ -695,9 +695,9 @@ const Login = () => {
                     <input type="checkbox" defaultChecked />
                     Remember me
                   </label>
-                  <button type="button" className="sl-forgot" onClick={forgotPassword}>
+                  {/* <button type="button" className="sl-forgot" onClick={forgotPassword}>
                     Forgot Password?
-                  </button>
+                  </button> */}
                 </div>
 
                 <button type="submit" className="sl-submit" disabled={!valideValue || isLoading}>

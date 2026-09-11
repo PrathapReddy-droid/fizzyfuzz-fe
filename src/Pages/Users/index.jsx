@@ -8,7 +8,18 @@ import { MdLocalPhone } from "react-icons/md";
 import { SlCalender } from "react-icons/sl";
 import { deleteData, deleteMultipleData, fetchDataFromApi, postData } from '../../utils/api';
 import { FaCheckDouble } from "react-icons/fa6";
-import { HiOutlineTrash } from "react-icons/hi2";
+import {
+  HiOutlineTrash,
+  HiOutlineEye,
+  HiOutlineEyeSlash,
+  HiOutlineXMark,
+  HiOutlineMapPin,
+  HiOutlineBuildingStorefront,
+  HiOutlineIdentification,
+  HiOutlineBanknotes,
+  HiOutlineChevronUp,
+  HiOutlineChevronDown,
+} from "react-icons/hi2";
 import { RiUserLine, RiStoreLine, RiShieldCheckLine } from "react-icons/ri";
 
 const baseColumns = [
@@ -71,6 +82,209 @@ const ConfirmDialog = ({ isOpen, onConfirm, onCancel, title, message, isMultiple
   );
 };
 
+/* ── Seller Details Modal ──
+   Reads straight off the row's user object (already returned by the list
+   API) — no extra fetch needed. Only shows fields an admin reviewing a
+   seller would actually need: never password, tokens, or OTP fields.
+   Aadhaar / bank account are masked by default with a per-field reveal. */
+const SellerDetailsModal = ({ isOpen, onClose, user }) => {
+  const [revealed, setRevealed] = useState({});
+  const [showTransactions, setShowTransactions] = useState(false);
+
+  useEffect(() => {
+    setRevealed({});
+    setShowTransactions(false);
+  }, [user?._id]);
+
+  if (!isOpen || !user) return null;
+
+  const toggleReveal = (key) => setRevealed((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const maskValue = (value) => {
+    if (!value) return "";
+    const str = String(value);
+    return str.length <= 4 ? str : `•••• ${str.slice(-4)}`;
+  };
+
+  const kycComplete = Boolean(
+    (user?.pan_number?.trim() || user?.aadhaar_number?.trim()) &&
+    user?.gst?.trim() &&
+    user?.bank_account?.trim() &&
+    user?.ifsc?.trim()
+  );
+
+  const Field = ({ label, value, icon }) => (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+      <div className="flex items-center gap-2 text-gray-500 text-[12px] shrink-0">
+        {icon}
+        {label}
+      </div>
+      <span className="text-[12.5px] font-semibold text-gray-800 text-right break-words">
+        {value || <span className="text-gray-300 font-normal">Not provided</span>}
+      </span>
+    </div>
+  );
+
+  const SensitiveField = ({ label, value, fieldKey, icon }) => (
+    <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+      <div className="flex items-center gap-2 text-gray-500 text-[12px] shrink-0">
+        {icon}
+        {label}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[12.5px] font-semibold text-gray-800 font-mono">
+          {value ? (revealed[fieldKey] ? value : maskValue(value)) : <span className="text-gray-300 font-normal font-sans">Not provided</span>}
+        </span>
+        {value && (
+          <button onClick={() => toggleReveal(fieldKey)} className="text-gray-300 hover:text-gray-500 transition shrink-0">
+            {revealed[fieldKey] ? <HiOutlineEyeSlash size={14} /> : <HiOutlineEye size={14} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const recentTransactions = [...(user?.wallet?.transactions || [])].slice(-5).reverse();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden max-h-[88vh] flex flex-col animate-[fadeInScale_0.15s_ease-out]">
+        {/* Top accent bar */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-orange-400 to-orange-600 shrink-0" />
+
+        {/* Header */}
+        <div className="px-6 pt-5 pb-4 flex items-start gap-4 border-b border-gray-100 shrink-0">
+          <img
+            src={user?.avatar || "/user.jpg"}
+            className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-sm shrink-0"
+            onError={(e) => { e.target.src = "/user.jpg"; }}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-[16px] font-extrabold text-gray-800 truncate">{user?.name}</h3>
+              {user?.verify_email && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10.5px] font-bold">
+                  <FaCheckDouble size={9} /> Verified
+                </span>
+              )}
+            </div>
+            <p className="text-[11.5px] text-gray-400 mt-0.5">UID: {user?.uid || "—"}</p>
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${user?.status === "Active" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                {user?.status || "Unknown"}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${user?.isLiveEnabled ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                {user?.isLiveEnabled ? "● Live" : "○ Disabled"}
+              </span>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${kycComplete ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-red-50 border-red-200 text-red-600"}`}>
+                <RiShieldCheckLine size={11} />
+                {kycComplete ? "KYC Complete" : "KYC Incomplete"}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-300 hover:text-gray-600 hover:bg-gray-50 transition shrink-0">
+            <HiOutlineXMark size={18} />
+          </button>
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="px-6 py-4 overflow-y-auto flex-1">
+
+          {/* Wallet */}
+          <div className="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 mb-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-700">
+                <HiOutlineBanknotes size={16} />
+                <span className="text-[12px] font-bold uppercase tracking-wide">Wallet Balance</span>
+              </div>
+              <span className="text-[16px] font-extrabold text-blue-700">₹{user?.wallet?.balance ?? 0}</span>
+            </div>
+
+            {/* {recentTransactions.length > 0 && (
+              <div className="mt-2.5 pt-2.5 border-t border-blue-100">
+                <button
+                  onClick={() => setShowTransactions((v) => !v)}
+                  className="flex items-center gap-1.5 text-[11.5px] font-bold text-blue-600 hover:text-blue-700 transition"
+                >
+                  {showTransactions ? <HiOutlineChevronUp size={13} /> : <HiOutlineChevronDown size={13} />}
+                  {showTransactions ? "Hide" : "Show"} recent transactions ({user.wallet.transactions.length})
+                </button>
+                {showTransactions && (
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-blue-100 bg-white divide-y divide-blue-50">
+                    {recentTransactions.map((tx) => (
+                      <div key={tx._id} className="flex items-center justify-between px-3 py-2 text-[11.5px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-700 truncate">{tx.reason}</p>
+                          <p className="text-gray-400 truncate">{tx.orderId} · {tx.createdAt?.split("T")[0]}</p>
+                        </div>
+                        <span className={`font-bold shrink-0 ml-2 ${tx.type === "CREDIT" ? "text-emerald-600" : "text-red-500"}`}>
+                          {tx.type === "CREDIT" ? "+" : "-"}₹{tx.amount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )} */}
+          </div>
+
+          {/* Contact */}
+          <div className="mb-5">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Contact</p>
+            <div className="bg-gray-50/60 rounded-xl px-4">
+              <Field icon={<MdOutlineMarkEmailRead size={14} />} label="Email" value={user?.email} />
+              <Field icon={<MdLocalPhone size={14} />} label="Phone" value={user?.mobile} />
+              <Field icon={<HiOutlineMapPin size={14} />} label="Address" value={user?.address} />
+              <Field icon={<HiOutlineMapPin size={14} />} label="City / State" value={[user?.city, user?.state].filter(Boolean).join(", ")} />
+              <Field icon={<HiOutlineMapPin size={14} />} label="Pickup Location" value={user?.pickup_location} />
+              <Field icon={<HiOutlineMapPin size={14} />} label="PIN Code" value={user?.pin_number} />
+            </div>
+          </div>
+
+          {/* Business & KYC */}
+          <div className="mb-5">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Business & KYC</p>
+            <div className="bg-gray-50/60 rounded-xl px-4">
+              {/* <Field icon={<HiOutlineBuildingStorefront size={14} />} label="Business Name" value={user?.business} /> */}
+              <Field icon={<HiOutlineIdentification size={14} />} label="GST" value={user?.gst} />
+              <Field icon={<HiOutlineIdentification size={14} />} label="PAN" value={user?.pan_number} />
+              <SensitiveField icon={<HiOutlineIdentification size={14} />} label="Aadhaar" value={user?.aadhaar_number} fieldKey="aadhaar" />
+              <SensitiveField icon={<HiOutlineBanknotes size={14} />} label="Bank Account" value={user?.bank_account} fieldKey="bank" />
+              <Field icon={<HiOutlineBanknotes size={14} />} label="IFSC" value={user?.ifsc} />
+            </div>
+            {user?.kyc_img && (
+              <a
+                href={user.kyc_img}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 flex items-center gap-2 text-[12px] font-semibold text-blue-600 hover:text-blue-700 transition"
+              >
+                <img src={user.kyc_img} className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+                View KYC Document
+              </a>
+            )}
+          </div>
+
+          {/* Account */}
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Account</p>
+            <div className="bg-gray-50/60 rounded-xl px-4">
+              <Field icon={<SlCalender size={13} />} label="Joined" value={user?.createdAt?.split("T")[0]} />
+              <Field icon={<SlCalender size={13} />} label="Last Login" value={user?.last_login_date?.split("T")[0]} />
+              <Field icon={<RiShieldCheckLine size={14} />} label="Account Confirmed" value={user?.isConfirmed ? "Yes" : "No"} />
+              <Field icon={<RiShieldCheckLine size={14} />} label="Signed up with Google" value={user?.signUpWithGoogle ? "Yes" : "No"} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Users = () => {
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(25);
@@ -81,6 +295,8 @@ export const Users = () => {
   const [type, setType] = useState("USER");
   const [sortedIds, setSortedIds] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, isMultiple: false });
+  // Seller "view details" modal — populated straight from the row's data.
+  const [detailsModal, setDetailsModal] = useState({ open: false, user: null });
 
   const context = useContext(MyContext);
   const isSeller = type === "SELLER";
@@ -188,6 +404,16 @@ export const Users = () => {
     setConfirmDialog({ open: false, userId: null, isMultiple: false });
   };
 
+  // Opens the seller details modal — uses the row's own data, already
+  // present in the list response, so no extra request is made.
+  const openSellerDetails = (user) => {
+    setDetailsModal({ open: true, user });
+  };
+
+  const closeSellerDetails = () => {
+    setDetailsModal({ open: false, user: null });
+  };
+
   const totalPages = userData?.totalPages || 1;
   const currentCount = userData?.users?.length || 0;
 
@@ -206,6 +432,14 @@ export const Users = () => {
             : "This user will be permanently removed. This action cannot be undone."
         }
       />
+
+      {/* Seller details modal */}
+      <SellerDetailsModal
+        isOpen={detailsModal.open}
+        onClose={closeSellerDetails}
+        user={detailsModal.user}
+      />
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
         {/* ── Header ── */}
@@ -391,15 +625,26 @@ export const Users = () => {
                       </td>
                     )}
 
-                    {/* Delete */}
+                    {/* Actions */}
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => confirmDeleteUser(user._id)}
-                        className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                        title="Delete user"
-                      >
-                        <HiOutlineTrash size={15} />
-                      </button>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {isSeller && (
+                          <button
+                            onClick={() => openSellerDetails(user)}
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                            title="View seller details"
+                          >
+                            <HiOutlineEye size={15} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => confirmDeleteUser(user._id)}
+                          className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                          title="Delete user"
+                        >
+                          <HiOutlineTrash size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

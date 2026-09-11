@@ -55,6 +55,7 @@ const EditProduct = () => {
     const [videoPreview, setVideoPreview] = useState("");
     const [videoFile, setVideoFile] = useState(null);
     const [videoSuccess, setVideoSuccess] = useState(false);
+    const [fssaiImagePreviews, setFssaiImagePreviews] = useState([]);
     const [formFields, setFormFields] = useState({
         name: "",
         description: "",
@@ -84,6 +85,11 @@ const EditProduct = () => {
         isDisplayOnHomeBanner: false,
         shipment_days: '',
         product_pincode: '',
+        // FSSAI compliance declaration
+        fssaiCompliant: "",
+        fssaiLicenseNumber: "",
+        fssaiImages: [],
+        declarationStatus: "",
         variants: {
             color: [],
             ram: [],
@@ -112,6 +118,14 @@ const EditProduct = () => {
 
     const history = useNavigate();
     const context = useContext(MyContext);
+
+    // Derived: the full category object currently selected.
+    const selectedCatObject = context?.catData?.find(cat => cat?._id === productCat);
+
+    // FSSAI is only required when the selected category itself is flagged for it —
+    // context.catData[].isFssaiRequired === true — never inferred from the category name.
+    const isFssaiRequired = !!selectedCatObject?.isFssaiRequired;
+
     const handleVideoSelect = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -179,6 +193,54 @@ const EditProduct = () => {
 
     const handleChangeReturnDays = (event) => {
         setFormFields(prev => ({ ...prev, returnDays: event.target.value }));
+    };
+
+    const setFssaiImagesFun = (data) => {
+        let images = [];
+
+        if (Array.isArray(data)) {
+            images = data;
+        } else if (Array.isArray(data?.images)) {
+            images = data.images;
+        } else {
+            console.warn("setFssaiImagesFun received invalid data:", data);
+            return;
+        }
+
+        setFssaiImagePreviews(prev => {
+            const updated = [...prev, ...images];
+
+            setFormFields(state => ({
+                ...state,
+                fssaiImages: updated
+            }));
+
+            return updated;
+        });
+    };
+
+    const removeFssaiImg = (image, index) => {
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            setFssaiImagePreviews(prev => {
+                const updated = prev.filter((_, i) => i !== index);
+
+                setFormFields(state => ({
+                    ...state,
+                    fssaiImages: updated
+                }));
+
+                return updated;
+            });
+        });
+    };
+
+    // FSSAI declaration handlers
+    const handleChangeFssaiCompliant = (event) => {
+        setFormFields(prev => ({ ...prev, fssaiCompliant: event.target.value }));
+    };
+
+    const handleChangeDeclarationStatus = (event) => {
+        setFormFields(prev => ({ ...prev, declarationStatus: event.target.value }));
     };
 
     const [variantOptions, setVariantOptions] = useState({
@@ -273,6 +335,12 @@ const EditProduct = () => {
                 productWeight: res?.product?.productWeight,
                 bannerTitleName: res?.product?.bannerTitleName,
                 bannerimages: res?.product?.bannerimages,
+                // FSSAI compliance declaration — hydrated from the saved product so
+                // the section shows existing answers if the category still requires it.
+                fssaiCompliant: res?.product?.fssaiCompliant || "",
+                fssaiLicenseNumber: res?.product?.fssaiLicenseNumber || "",
+                fssaiImages: res?.product?.fssaiImages || [],
+                declarationStatus: res?.product?.declarationStatus || "",
                 variants: res?.product?.variants,
                 isDisplayOnHomeBanner: res?.product?.isDisplayOnHomeBanner,
                 shipment_days: res?.product?.shipment_days,
@@ -289,6 +357,7 @@ const EditProduct = () => {
 
             setPreviews(res?.product?.images);
             setBannerPreviews(res?.product?.bannerimages);
+            setFssaiImagePreviews(res?.product?.fssaiImages || []);
 
 
         })
@@ -296,15 +365,35 @@ const EditProduct = () => {
 
 
     const handleChangeProductCat = (event) => {
-        setProductCat(event.target.value);
-        formFields.catId = event.target.value
-        formFields.category = event.target.value
+        const catId = event.target.value;
+        const catObj = context?.catData?.find(cat => cat?._id === catId);
+        const catName = catObj?.name || '';
+        const fssaiRequired = !!catObj?.isFssaiRequired;
 
+        setProductCat(catId);
+
+        // Clear any FSSAI image previews whenever the new category doesn't
+        // require FSSAI, so a stale upload never rides along with it.
+        if (!fssaiRequired) {
+            setFssaiImagePreviews([]);
+        }
+
+        setFormFields(prev => ({
+            ...prev,
+            catId,
+            category: catId,
+            catName,
+            // Reset FSSAI answers/uploads whenever the new category doesn't require
+            // FSSAI (catObj.isFssaiRequired !== true), so a stale answer or upload
+            // never gets submitted against it.
+            ...(fssaiRequired ? {} : {
+                fssaiCompliant: "",
+                fssaiLicenseNumber: "",
+                declarationStatus: "",
+                fssaiImages: [],
+            })
+        }));
     };
-
-    const selectCatByName = (name) => {
-        formFields.catName = name
-    }
 
     const handleChangeProductSubCat = (event) => {
         setProductSubCat(event.target.value);
@@ -511,6 +600,31 @@ const EditProduct = () => {
             return false;
         }
 
+        // FSSAI checks only apply when the selected category has isFssaiRequired
+        // set to true (context.catData[].isFssaiRequired) — everything else skips this block.
+        if (isFssaiRequired) {
+            if (formFields?.fssaiImages.length === 0) {
+                context.alertBox("error", "Please upload your FSSAI license/packaging document");
+                return false;
+            }
+            if (formFields?.fssaiCompliant === "") {
+                context.alertBox("error", "Please answer the packaging compliance question");
+                return false;
+            }
+            if (formFields?.fssaiLicenseNumber.trim() === "") {
+                context.alertBox("error", "Please enter your FSSAI License Number");
+                return false;
+            }
+            if (formFields?.declarationStatus === "") {
+                context.alertBox("error", "Please accept the FSSAI declaration to continue");
+                return false;
+            }
+            if (formFields?.declarationStatus === "Decline") {
+                context.alertBox("error", "You must accept the declaration to publish this product");
+                return false;
+            }
+        }
+
 
         if (previews?.length === 0) {
             context.alertBox("error", "Please select product images");
@@ -537,6 +651,8 @@ const EditProduct = () => {
             }
         })
     }
+
+    const canPublish = !isFssaiRequired || formFields.declarationStatus === "Accept";
 
     return (
         <section className="bg-white">
@@ -576,7 +692,7 @@ const EditProduct = () => {
                                 <h3 className={labelCls}>Product Category</h3>
                                 <Select size="small" sx={selectSx} value={productCat} onChange={handleChangeProductCat}>
                                     {context?.catData?.map(cat => (
-                                        <MenuItem key={cat._id} value={cat._id} onClick={() => selectCatByName(cat.name)}>
+                                        <MenuItem key={cat._id} value={cat._id}>
                                             {cat.name}
                                         </MenuItem>
                                     ))}
@@ -857,32 +973,144 @@ const EditProduct = () => {
                         />
                     </SectionCard>
 
+                    {/* FSSAI Compliance Declaration — only relevant when the selected category
+                        has isFssaiRequired === true in catData */}
+                    {isFssaiRequired && (
+                        <SectionCard
+                            title="FSSAI compliance declaration"
+                            subtitle="Confirm your product packaging and license details before publishing."
+                            tag="Required for this category"
+                            className={
+                                formFields.declarationStatus === "Accept"
+                                    ? "!border-green-200"
+                                    : formFields.declarationStatus === "Decline"
+                                        ? "!border-red-200"
+                                        : ""
+                            }
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div className="flex flex-col">
+                                    <h4 className="text-[13.5px] font-semibold text-gray-800 leading-snug min-h-[42px] flex items-start">
+                                        Do all your products have Manufacturer/Importer Details, Veg/Non-Veg mark, and MRP mentioned on the primary packaging? <span className="text-red-600 ml-1">*</span>
+                                    </h4>
+                                    <Select
+                                        size="small"
+                                        sx={{ ...selectSx, mt: 1 }}
+                                        displayEmpty
+                                        value={formFields.fssaiCompliant}
+                                        onChange={handleChangeFssaiCompliant}
+                                    >
+                                        <MenuItem value="" disabled>Select an option</MenuItem>
+                                        <MenuItem value="Yes">Yes</MenuItem>
+                                        <MenuItem value="No">No</MenuItem>
+                                    </Select>
+                                </div>
+
+                                <div className="flex flex-col">
+                                    <h4 className="text-[13.5px] font-semibold text-gray-800 leading-snug min-h-[42px] flex items-start">
+                                        FSSAI License Number <span className="text-red-600 ml-1">*</span>
+                                    </h4>
+                                    <input
+                                        type="text"
+                                        name="fssaiLicenseNumber"
+                                        value={formFields.fssaiLicenseNumber}
+                                        onChange={onChangeInput}
+                                        placeholder="e.g. 12345678901234"
+                                        className={`${inputCls} mt-1`}
+                                    />
+                                </div>
+                            </div>
+                            <div className="mb-6">
+                                <h4 className="text-[13.5px] font-semibold text-gray-800 mb-2">
+                                    Upload FSSAI License / Packaging Document <span className="text-red-600 ml-1">*</span>
+                                </h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {fssaiImagePreviews?.length !== 0 && fssaiImagePreviews?.map((image, index) => (
+                                        <div className="relative" key={index}>
+                                            <span
+                                                className="absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-600 -top-[6px] -right-[6px] flex items-center justify-center z-50 cursor-pointer shadow-sm"
+                                                onClick={() => removeFssaiImg(image, index)}
+                                            >
+                                                <IoMdClose className="text-white text-[14px]" />
+                                            </span>
+                                            <div className="rounded-lg overflow-hidden border border-gray-200 h-[120px] w-full bg-gray-50 flex items-center justify-center">
+                                                <img src={image} className="w-full h-full object-cover" />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <UploadBox
+                                        multiple={false}
+                                        name="fssaiImages"
+                                        url="/api/product/uploadFssaiImages"
+                                        setPreviewsFun={setFssaiImagesFun}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-6">
+                                <p className="text-[12.5px] leading-relaxed text-gray-600">
+                                    I acknowledge that I have read, and do hereby affirm my commitment to ensuring the ongoing accuracy, validity, and lawful authorization of the representation, warranty, covenant, and undertaking throughout my advertisement, distribution, marketing, supply, or sale of the food products on the Flipkart website. I acknowledge to be fully compliant with all applicable laws, including the Food Safety and Standards Act, 2006, Food Safety and Standards (Licensing and Registration of Food Business) Regulations, 2011, and Food Safety and Standards (Labelling &amp; Display) Regulations, 2020, as amended from time to time. Furthermore, I undertake to promptly address and resolve any complaints concerning product efficacy, quality, or other related matters.
+                                </p>
+                            </div>
+
+                            <div className="md:w-1/3">
+                                <h4 className="text-[13.5px] font-semibold mb-2 text-gray-800">
+                                    Accept Declaration <span className="text-red-600">*</span>
+                                </h4>
+                                <Select
+                                    size="small"
+                                    sx={selectSx}
+                                    displayEmpty
+                                    value={formFields.declarationStatus}
+                                    onChange={handleChangeDeclarationStatus}
+                                >
+                                    <MenuItem value="" disabled>Select</MenuItem>
+                                    <MenuItem value="Accept">Accept</MenuItem>
+                                    <MenuItem value="Decline">Decline</MenuItem>
+                                </Select>
+
+                                {formFields.declarationStatus === "Decline" && (
+                                    <p className="text-[12px] text-red-600 mt-2">
+                                        You must accept the declaration to publish this product.
+                                    </p>
+                                )}
+                            </div>
+                        </SectionCard>
+                    )}
+
                 </div>
 
                 <div className="border-t border-gray-200 pt-5 mt-2">
-                    <Button
-                        type="submit"
-                        variant="contained"
-                        disableElevation
-                        className="w-full flex gap-2"
-                        sx={{
-                            height: '46px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            borderRadius: '10px',
-                            backgroundColor: '#4f46e5',
-                            '&:hover': { backgroundColor: '#4338ca' },
-                        }}
-                    >
-                        {isLoading ? <CircularProgress size={22} color="inherit" />
-                            : (
-                                <>
-                                    <FaCloudUploadAlt className="text-[20px] text-white" />
-                                    Publish and View
-                                </>
-                            )}
-                    </Button>
+                    {canPublish ? (
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disableElevation
+                            className="w-full flex gap-2"
+                            sx={{
+                                height: '46px',
+                                textTransform: 'none',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                borderRadius: '10px',
+                                backgroundColor: '#4f46e5',
+                                '&:hover': { backgroundColor: '#4338ca' },
+                            }}
+                        >
+                            {isLoading ? <CircularProgress size={22} color="inherit" />
+                                : (
+                                    <>
+                                        <FaCloudUploadAlt className="text-[20px] text-white" />
+                                        Publish and View
+                                    </>
+                                )}
+                        </Button>
+                    ) : (
+                        <div className="w-full text-center bg-gray-50 border border-dashed border-gray-300 rounded-lg py-3 text-[13px] text-gray-500">
+                            Accept the FSSAI declaration above to enable publishing
+                        </div>
+                    )}
                 </div>
             </form>
         </section>
