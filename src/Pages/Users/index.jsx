@@ -7,6 +7,7 @@ import { MdOutlineMarkEmailRead } from "react-icons/md";
 import { MdLocalPhone } from "react-icons/md";
 import { SlCalender } from "react-icons/sl";
 import { deleteData, deleteMultipleData, fetchDataFromApi, postData } from '../../utils/api';
+import { arrayToCSV, downloadCSV } from '../../utils/csvExport';
 import { FaCheckDouble } from "react-icons/fa6";
 import {
   HiOutlineTrash,
@@ -19,6 +20,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineChevronUp,
   HiOutlineChevronDown,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { RiUserLine, RiStoreLine, RiShieldCheckLine } from "react-icons/ri";
 
@@ -32,28 +34,73 @@ const baseColumns = [
   { id: "action", label: "" },
 ];
 
+/* ── CSV export column definitions ──
+   Kept separate per type since Users and Sellers carry different fields
+   (Sellers add GST/PAN/Aadhaar/bank/pickup, Users don't). */
+const yesNo = (v) => (v ? "Yes" : "No");
+const dateOnly = (v) => (v ? String(v).split("T")[0] : "");
+
+const USER_EXPORT_COLUMNS = [
+  { key: "uid", label: "UID" },
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "mobile", label: "Phone" },
+  { key: "wallet.balance", label: "Wallet Balance", format: (v) => v ?? 0 },
+  { key: "verify_email", label: "Email Verified", format: yesNo },
+  { key: "status", label: "Status" },
+  { key: "address", label: "Address" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "isConfirmed", label: "Account Confirmed", format: yesNo },
+  { key: "signUpWithGoogle", label: "Signed Up With Google", format: yesNo },
+  { key: "createdAt", label: "Joined", format: dateOnly },
+  { key: "last_login_date", label: "Last Login", format: dateOnly },
+];
+
+const SELLER_EXPORT_COLUMNS = [
+  { key: "uid", label: "UID" },
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "mobile", label: "Phone" },
+  { key: "gst", label: "GST" },
+  { key: "pan_number", label: "PAN" },
+  { key: "aadhaar_number", label: "Aadhaar" },
+  { key: "bank_account", label: "Bank Account" },
+  { key: "ifsc", label: "IFSC" },
+  { key: "address", label: "Address" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "pickup_location", label: "Pickup Location" },
+  { key: "pin_number", label: "PIN Code" },
+  { key: "status", label: "Status" },
+  { key: "isLiveEnabled", label: "Live", format: yesNo },
+  { key: "verify_email", label: "Email Verified", format: yesNo },
+  { key: "isConfirmed", label: "Account Confirmed", format: yesNo },
+  { key: "signUpWithGoogle", label: "Signed Up With Google", format: yesNo },
+  { key: "wallet.balance", label: "Wallet Balance", format: (v) => v ?? 0 },
+  { key: "createdAt", label: "Joined", format: dateOnly },
+  { key: "last_login_date", label: "Last Login", format: dateOnly },
+];
+
+const EXPORT_PAGE_SIZE = 1000;
+
 /* ── Confirm Dialog ── */
 const ConfirmDialog = ({ isOpen, onConfirm, onCancel, title, message, isMultiple }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onCancel}
       />
-      {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden animate-[fadeInScale_0.15s_ease-out]">
-        {/* Top accent bar */}
         <div className="h-1 w-full bg-gradient-to-r from-red-400 to-red-600" />
 
         <div className="px-6 pt-5 pb-6">
-          {/* Icon */}
           <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 border border-red-100 mx-auto mb-4">
             <HiOutlineTrash size={22} className="text-red-500" />
           </div>
 
-          {/* Text */}
           <h3 className="text-[15px] font-extrabold text-gray-800 text-center tracking-tight">
             {title || "Delete User?"}
           </h3>
@@ -61,7 +108,6 @@ const ConfirmDialog = ({ isOpen, onConfirm, onCancel, title, message, isMultiple
             {message || "This action cannot be undone. The user will be permanently removed."}
           </p>
 
-          {/* Buttons */}
           <div className="flex gap-2 mt-5">
             <button
               onClick={onCancel}
@@ -148,15 +194,11 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden max-h-[88vh] flex flex-col animate-[fadeInScale_0.15s_ease-out]">
-        {/* Top accent bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-orange-400 to-orange-600 shrink-0" />
 
-        {/* Header */}
         <div className="px-6 pt-5 pb-4 flex items-start gap-4 border-b border-gray-100 shrink-0">
           <img
             src={user?.avatar || "/user.jpg"}
@@ -191,10 +233,8 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
           </button>
         </div>
 
-        {/* Body — scrollable */}
         <div className="px-6 py-4 overflow-y-auto flex-1">
 
-          {/* Wallet */}
           <div className="bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3 mb-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-700">
@@ -203,36 +243,8 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
               </div>
               <span className="text-[16px] font-extrabold text-blue-700">₹{user?.wallet?.balance ?? 0}</span>
             </div>
-
-            {/* {recentTransactions.length > 0 && (
-              <div className="mt-2.5 pt-2.5 border-t border-blue-100">
-                <button
-                  onClick={() => setShowTransactions((v) => !v)}
-                  className="flex items-center gap-1.5 text-[11.5px] font-bold text-blue-600 hover:text-blue-700 transition"
-                >
-                  {showTransactions ? <HiOutlineChevronUp size={13} /> : <HiOutlineChevronDown size={13} />}
-                  {showTransactions ? "Hide" : "Show"} recent transactions ({user.wallet.transactions.length})
-                </button>
-                {showTransactions && (
-                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-blue-100 bg-white divide-y divide-blue-50">
-                    {recentTransactions.map((tx) => (
-                      <div key={tx._id} className="flex items-center justify-between px-3 py-2 text-[11.5px]">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-700 truncate">{tx.reason}</p>
-                          <p className="text-gray-400 truncate">{tx.orderId} · {tx.createdAt?.split("T")[0]}</p>
-                        </div>
-                        <span className={`font-bold shrink-0 ml-2 ${tx.type === "CREDIT" ? "text-emerald-600" : "text-red-500"}`}>
-                          {tx.type === "CREDIT" ? "+" : "-"}₹{tx.amount}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )} */}
           </div>
 
-          {/* Contact */}
           <div className="mb-5">
             <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Contact</p>
             <div className="bg-gray-50/60 rounded-xl px-4">
@@ -245,11 +257,9 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
             </div>
           </div>
 
-          {/* Business & KYC */}
           <div className="mb-5">
             <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Business & KYC</p>
             <div className="bg-gray-50/60 rounded-xl px-4">
-              {/* <Field icon={<HiOutlineBuildingStorefront size={14} />} label="Business Name" value={user?.business} /> */}
               <Field icon={<HiOutlineIdentification size={14} />} label="GST" value={user?.gst} />
               <Field icon={<HiOutlineIdentification size={14} />} label="PAN" value={user?.pan_number} />
               <SensitiveField icon={<HiOutlineIdentification size={14} />} label="Aadhaar" value={user?.aadhaar_number} fieldKey="aadhaar" />
@@ -269,7 +279,6 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
             )}
           </div>
 
-          {/* Account */}
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-1.5">Account</p>
             <div className="bg-gray-50/60 rounded-xl px-4">
@@ -278,6 +287,147 @@ const SellerDetailsModal = ({ isOpen, onClose, user }) => {
               <Field icon={<RiShieldCheckLine size={14} />} label="Account Confirmed" value={user?.isConfirmed ? "Yes" : "No"} />
               <Field icon={<RiShieldCheckLine size={14} />} label="Signed up with Google" value={user?.signUpWithGoogle ? "Yes" : "No"} />
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Export Progress Overlay ──
+   Shown while handleExportCSV is looping through pages. Progress is
+   fetched-count / total (total only known after the first page returns). */
+const ExportProgressOverlay = ({ state }) => {
+  if (!state.loading) return null;
+  const pct = state.total > 0 ? Math.min(100, Math.round((state.fetched / state.total) * 100)) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 px-6 py-6 text-center animate-[fadeInScale_0.15s_ease-out]">
+        <div className="w-10 h-10 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-[13px] font-bold text-gray-700">
+          Exporting {state.type === "SELLER" ? "Sellers" : "Users"}…
+        </p>
+        <p className="text-[12px] text-gray-400 mt-1">
+          {state.fetched.toLocaleString()}{state.total ? ` / ${state.total.toLocaleString()}` : ""} records
+        </p>
+        <div className="w-full h-1.5 bg-gray-100 rounded-full mt-3 overflow-hidden">
+          <div
+            className="h-full bg-blue-600 transition-all duration-200"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Add Wallet Balance Modal ──
+   Admin-only. Posts to /api/user/addWalletBalance, which credits the
+   wallet and appends a transaction (FFTNX-prefixed id) server-side.
+   onSuccess receives the returned wallet object so the parent can patch
+   the row in place without a full refetch. */
+const AddWalletModal = ({ isOpen, onClose, user, onSuccess }) => {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const context = useContext(MyContext);
+
+  useEffect(() => {
+    if (isOpen) {
+      setAmount("");
+      setReason("");
+      setSubmitting(false);
+    }
+  }, [isOpen, user?._id]);
+
+  if (!isOpen || !user) return null;
+
+  const handleSubmit = async () => {
+    const numericAmount = Number(amount);
+    if (!numericAmount || numericAmount <= 0) {
+      context.alertBox("error", "Enter a valid amount greater than 0");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await postData(`/api/user/addWalletBalance`, {
+        role : context?.userData?.role,
+        userId: user._id,
+        amount: numericAmount,
+        reason: reason.trim() || undefined,
+      });
+      if (!res?.success) throw new Error(res?.message || "Failed to add wallet balance");
+      context.alertBox("success", `₹${numericAmount} added to ${user.name}'s wallet`);
+      onSuccess(user._id, res.wallet);
+      onClose();
+    } catch (err) {
+      context.alertBox("error", err.message || "Failed to add wallet balance");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!submitting ? onClose : undefined} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-auto overflow-hidden animate-[fadeInScale_0.15s_ease-out]">
+        <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+        <div className="px-6 pt-5 pb-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 mx-auto mb-4">
+            <HiOutlineBanknotes size={22} className="text-emerald-500" />
+          </div>
+          <h3 className="text-[15px] font-extrabold text-gray-800 text-center tracking-tight">
+            Add Wallet Balance
+          </h3>
+          <p className="text-[12px] text-gray-400 text-center mt-1">
+            {user.name} · Current balance ₹{user?.wallet?.balance ?? 0}
+          </p>
+
+          <div className="mt-4">
+            <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Amount (₹)</label>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount"
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              autoFocus
+              disabled={submitting}
+            />
+          </div>
+
+          <div className="mt-3">
+            <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Reason (optional)</label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Promotional credit"
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              disabled={submitting}
+            />
+          </div>
+
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+              {submitting ? "Adding…" : "Add Amount"}
+            </button>
           </div>
         </div>
       </div>
@@ -295,11 +445,14 @@ export const Users = () => {
   const [type, setType] = useState("USER");
   const [sortedIds, setSortedIds] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, isMultiple: false });
-  // Seller "view details" modal — populated straight from the row's data.
   const [detailsModal, setDetailsModal] = useState({ open: false, user: null });
+  const [exportState, setExportState] = useState({ loading: false, type: null, fetched: 0, total: 0 });
+  // Add-wallet-balance modal state — admin only.
+  const [walletModal, setWalletModal] = useState({ open: false, user: null });
 
   const context = useContext(MyContext);
   const isSeller = type === "SELLER";
+  const isAdmin = context?.userData?.role === "ADMIN";
 
   const columns = React.useMemo(() => {
     if (type === "USER") return baseColumns.filter(col => col.id !== "live");
@@ -367,7 +520,6 @@ export const Users = () => {
     } catch (err) { console.log(err); }
   };
 
-  // Open confirm for single delete
   const confirmDeleteUser = (id) => {
     if (context?.userData?.role !== "ADMIN") {
       context.alertBox("error", "Only admin can delete data");
@@ -376,7 +528,6 @@ export const Users = () => {
     setConfirmDialog({ open: true, userId: id, isMultiple: false });
   };
 
-  // Open confirm for bulk delete
   const confirmDeleteMultiple = () => {
     if (context?.userData?.role !== "ADMIN") {
       context.alertBox("error", "Only admin can delete data");
@@ -386,7 +537,6 @@ export const Users = () => {
     setConfirmDialog({ open: true, userId: null, isMultiple: true });
   };
 
-  // Actual delete after confirmation
   const handleConfirmDelete = () => {
     if (confirmDialog.isMultiple) {
       deleteMultipleData(`/api/user/deleteMultiple`, { data: { ids: sortedIds } }).then(() => {
@@ -404,8 +554,6 @@ export const Users = () => {
     setConfirmDialog({ open: false, userId: null, isMultiple: false });
   };
 
-  // Opens the seller details modal — uses the row's own data, already
-  // present in the list response, so no extra request is made.
   const openSellerDetails = (user) => {
     setDetailsModal({ open: true, user });
   };
@@ -414,12 +562,92 @@ export const Users = () => {
     setDetailsModal({ open: false, user: null });
   };
 
+  // Opens the add-wallet-balance modal — admin only.
+  const openWalletModal = (user) => {
+    if (!isAdmin) {
+      context.alertBox("error", "Only admin can add wallet balance");
+      return;
+    }
+    setWalletModal({ open: true, user });
+  };
+
+  const closeWalletModal = () => {
+    setWalletModal({ open: false, user: null });
+  };
+
+  // Patches the row's wallet in both userData and userTotalData (the
+  // latter backs the search filter) so the new balance shows immediately
+  // without refetching the whole page.
+  const handleWalletAddSuccess = (userId, wallet) => {
+    setUserData((prev) => ({
+      ...prev,
+      users: prev?.users?.map((u) => (u._id === userId ? { ...u, wallet } : u)),
+    }));
+    setUserTotalData((prev) => ({
+      ...prev,
+      totalUsers: prev?.totalUsers?.map((u) => (u._id === userId ? { ...u, wallet } : u)),
+    }));
+  };
+
+  const handleExportCSV = async (exportType) => {
+    if (!isAdmin) {
+      context.alertBox("error", "Only admin can export data");
+      return;
+    }
+    if (exportState.loading) return;
+
+    setExportState({ loading: true, type: exportType, fetched: 0, total: 0 });
+
+    try {
+      let allRows = [];
+      let cursor = null;
+      let total = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const qs = new URLSearchParams({
+          role:context?.userData?.role,
+          type: exportType,
+          limit: EXPORT_PAGE_SIZE,
+          ...(cursor ? { cursor } : {}),
+        });
+
+        const res = await fetchDataFromApi(`/api/user/exportUsers?${qs.toString()}`);
+
+        if (!res?.success) {
+          throw new Error(res?.message || "Export request failed");
+        }
+
+        allRows = allRows.concat(res.users || []);
+        if (typeof res.total === "number") total = res.total;
+        cursor = res.nextCursor;
+        hasMore = Boolean(res.hasMore) && Boolean(cursor);
+
+        setExportState({ loading: true, type: exportType, fetched: allRows.length, total });
+      }
+
+      const columns = exportType === "SELLER" ? SELLER_EXPORT_COLUMNS : USER_EXPORT_COLUMNS;
+      const csv = arrayToCSV(allRows, columns);
+      const dateStamp = new Date().toISOString().split("T")[0];
+      downloadCSV(csv, `${exportType.toLowerCase()}-export-${dateStamp}.csv`);
+
+      context.alertBox(
+        "success",
+        `Exported ${allRows.length} ${exportType.toLowerCase()}${allRows.length === 1 ? "" : "s"}`
+      );
+    } catch (err) {
+      console.log(err);
+      context.alertBox("error", "Export failed. Please try again.");
+    } finally {
+      setExportState({ loading: false, type: null, fetched: 0, total: 0 });
+    }
+  };
+
   const totalPages = userData?.totalPages || 1;
   const currentCount = userData?.users?.length || 0;
 
   return (
     <div className="min-h-screen">
-      {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.open}
         onConfirm={handleConfirmDelete}
@@ -433,20 +661,26 @@ export const Users = () => {
         }
       />
 
-      {/* Seller details modal */}
       <SellerDetailsModal
         isOpen={detailsModal.open}
         onClose={closeSellerDetails}
         user={detailsModal.user}
       />
 
+      <ExportProgressOverlay state={exportState} />
+
+      <AddWalletModal
+        isOpen={walletModal.open}
+        onClose={closeWalletModal}
+        user={walletModal.user}
+        onSuccess={handleWalletAddSuccess}
+      />
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-        {/* ── Header ── */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
-            {/* Title + Stats */}
             <div className="flex items-center gap-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSeller ? 'bg-orange-100' : 'bg-blue-100'}`}>
                 {isSeller
@@ -463,7 +697,6 @@ export const Users = () => {
               </div>
             </div>
 
-            {/* Right controls */}
             <div className="flex items-center gap-2 flex-wrap">
               {sortedIds.length > 0 && (
                 <button
@@ -474,13 +707,36 @@ export const Users = () => {
                   Delete {sortedIds.length} selected
                 </button>
               )}
+
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => handleExportCSV("USER")}
+                    disabled={exportState.loading}
+                    title="Download all users as CSV"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <HiOutlineArrowDownTray size={14} />
+                    Export Users
+                  </button>
+                  <button
+                    onClick={() => handleExportCSV("SELLER")}
+                    disabled={exportState.loading}
+                    title="Download all sellers as CSV"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <HiOutlineArrowDownTray size={14} />
+                    Export Sellers
+                  </button>
+                </>
+              )}
+
               <div className="w-52">
                 <SearchBox searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
               </div>
             </div>
           </div>
 
-          {/* Type toggle */}
           <div className="flex gap-2 mt-4">
             {["USER", "SELLER"].map((t) => (
               <button
@@ -500,7 +756,6 @@ export const Users = () => {
           </div>
         </div>
 
-        {/* ── Table ── */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -542,7 +797,6 @@ export const Users = () => {
                       ${user.checked ? 'bg-blue-50/70' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
                       hover:bg-blue-50/50`}
                   >
-                    {/* Checkbox */}
                     <td className="px-4 py-3 text-center">
                       <input
                         type="checkbox"
@@ -552,7 +806,6 @@ export const Users = () => {
                       />
                     </td>
 
-                    {/* User Info */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
@@ -575,13 +828,26 @@ export const Users = () => {
                       </div>
                     </td>
 
-                    {/* wallet */}
-                    {!isSeller && (<td className="px-4 py-3">
-                      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600">
-                        {user?.wallet.balance || <span className="text-gray-300 font-normal">0</span>}
-                      </span>
-                    </td>)}
-                    {/* Phone */}
+                    {/* wallet — balance + admin-only add button */}
+                    {!isSeller && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600">
+                            ₹{user?.wallet?.balance ?? 0}
+                          </span>
+                          {isAdmin && (
+                            <button
+                              onClick={() => openWalletModal(user)}
+                              title="Add wallet balance"
+                              className="p-1 rounded-md border border-gray-200 text-gray-400 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                            >
+                              <IoMdAdd size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600">
                         <MdLocalPhone className="text-gray-400" size={14} />
@@ -589,7 +855,6 @@ export const Users = () => {
                       </span>
                     </td>
 
-                    {/* Email Verify */}
                     <td className="px-4 py-3">
                       {user?.verify_email ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold">
@@ -602,7 +867,6 @@ export const Users = () => {
                       )}
                     </td>
 
-                    {/* Created Date */}
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500">
                         <SlCalender size={12} className="text-gray-400" />
@@ -610,7 +874,6 @@ export const Users = () => {
                       </span>
                     </td>
 
-                    {/* Live toggle — sellers only */}
                     {isSeller && (
                       <td className="px-4 py-3">
                         <button
@@ -625,7 +888,6 @@ export const Users = () => {
                       </td>
                     )}
 
-                    {/* Actions */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         {isSeller && (
@@ -665,9 +927,7 @@ export const Users = () => {
           </table>
         </div>
 
-        {/* ── Pagination ── */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
-          {/* Rows per page */}
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span className="font-medium">Rows per page:</span>
             <select
@@ -681,7 +941,6 @@ export const Users = () => {
             </select>
           </div>
 
-          {/* Page info + nav */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400 font-medium mr-2">
               Page <span className="text-gray-700 font-bold">{page + 1}</span> of <span className="text-gray-700 font-bold">{totalPages}</span>
@@ -693,7 +952,6 @@ export const Users = () => {
             >
               ‹
             </button>
-            {/* Page number pills */}
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const p = Math.max(0, Math.min(page - 2, totalPages - 5)) + i;
               return (
